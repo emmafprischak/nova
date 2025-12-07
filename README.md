@@ -77,6 +77,7 @@ Check your `.env` file - everything is already set up:
 - ✅ OpenAI (AI conversation)
 - ✅ Cal.com (scheduling)
 - ✅ Notion (CRM)
+- ✅ CRM Backend (optional - for external CRM integration)
 
 ## 🧪 Testing
 
@@ -129,62 +130,47 @@ lsof -ti:8000 | xargs kill -9
 - Check phone number format: +1XXXXXXXXXX
 - Verify Twilio number is SMS-enabled
 
-## 🎓 For Your Presentation
+## 🔗 CRM Backend Integration
 
-### Key Points:
-1. **Fully functional** - Real phone calls, not a demo
-2. **Multiple integrations** - 4 APIs working together
-3. **Async architecture** - Concurrent operations
-4. **Natural language** - Extracts structured data from speech
+Nova can automatically send call data to your external CRM backend at the end of each call. This is optional and works alongside the existing Notion integration.
 
-### Demo Script:
-1. Show code structure
-2. Start server (show logs)
-3. Make live call
-4. Walk through: SMS → Cal.com → Notion
-5. Explain architecture
+### Setup
 
-## 🚀 Adding Complexity (For Professors)
+Add this variable to your `.env` file:
 
-Easy additions:
-- **Sentiment analysis** - Detect caller frustration
-- **Lead scoring** - ML model for conversion prediction
-- **A/B testing** - Test different scripts
-- **Analytics dashboard** - Real-time call metrics
-- **Voice biometrics** - Speaker verification
-- **Multi-language** - Spanish/English detection
-
-## 📝 Important Files
-
-Start reading here:
-1. `backend/routes/webhooks.py` - Main call flow
-2. `backend/services/conversation.py` - AI logic
-3. `backend/services/calendar.py` - Booking logic
-
-## 🆘 Need Help?
-
-Common commands:
 ```bash
-# Start server
-cd backend && python main.py
-
-# Start ngrok
-ngrok http 8000
-
-# Check dependencies
-pip list
-
-# Test health
-curl http://localhost:8000/health
+# CRM Backend Integration (optional)
+CRM_BACKEND_URL=https://crm-backend-8b97.onrender.com
+CRM_TENANT_CODE=walmart
 ```
 
-## 🎉 You're Ready!
+### How it works
 
-Everything is configured and ready to go. Just:
-1. Install dependencies
-2. Start server
-3. Start ngrok
-4. Configure Twilio
-5. Call and test!
+At the end of each call, Nova automatically sends contact data to your CRM backend:
+- **Endpoint**: `POST {CRM_BACKEND_URL}/public/submit-contact`
+- **Authentication**: None (public endpoint)
+- **Payload**: Minimal JSON contract required by the public endpoint
 
-Good luck with your senior design project! 🚀
+Example payload:
+```json
+{
+  "name": "from nova",
+  "email": "from nova",
+  "phone": "from nova",
+  "tenant_code": "walmart"
+}
+```
+
+### Error Handling
+
+- Failed CRM pushes are logged but do not crash the call flow
+- Both successful and failed attempts are logged in console
+- If CRM backend is not configured, it's silently skipped
+
+### Testing
+
+Test your CRM backend integration:
+```bash
+python test_integrations.py
+```
+

@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from services.conversation import generate_response, get_conversation, end_conversation, detect_language
 from services.calendar import get_available_slots, book_appointment, format_slots_for_speech
 from services.sms import send_confirmation_sms
-from services.crm import create_lead
+from services.crm import create_lead, push_to_crm_backend
 
 router = APIRouter()
 
@@ -177,6 +177,13 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
                 except Exception as notion_error:
                     print(f"Notion error (non-fatal): {notion_error}")
 
+                # Push to CRM backend
+                print("Pushing to CRM backend...")
+                try:
+                    await push_to_crm_backend(conversation.call_data, CallSid)
+                except Exception as crm_error:
+                    print(f"CRM backend error (non-fatal): {crm_error}")
+
                 response = VoiceResponse()
                 if conversation.language == 'es':
                     response.say(
@@ -214,6 +221,12 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
             await create_lead(conversation.call_data, CallSid)
         except Exception as e:
             print(f"Failed to save lead: {e}")
+        
+        # Push to CRM backend
+        try:
+            await push_to_crm_backend(conversation.call_data, CallSid)
+        except Exception as e:
+            print(f"Failed to push to CRM backend: {e}")
 
         return Response(content=str(response), media_type="application/xml")
 
@@ -238,6 +251,12 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                     await create_lead(conversation.call_data, CallSid)
                 except Exception as e:
                     print(f"Failed to save lead on completion: {e}")
+                
+                # Push to CRM backend
+                try:
+                    await push_to_crm_backend(conversation.call_data, CallSid)
+                except Exception as e:
+                    print(f"Failed to push to CRM backend on completion: {e}")
 
             end_conversation(CallSid)
 
