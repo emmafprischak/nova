@@ -107,8 +107,8 @@ async def push_to_crm_backend(call_data: CallData, call_sid: str = None) -> dict
         # Minimal payload required by the public submit-contact endpoint
         payload = {
             "name": call_data.name or "Unknown",
-            "email": call_data.email or "",
-            "phone": call_data.phone or "",
+            "email": call_data.email or "novaisnotworking@orbyn.ai",
+            "phone": call_data.phone or "(555)555-5555",
             "tenant_code": CRM_TENANT_CODE,
         }
 
