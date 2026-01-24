@@ -8,12 +8,66 @@ import os
 import traceback
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from faq_data import FAQ_DATA, DEFAULT_RESPONSES
 from services.conversation import generate_response, get_conversation, end_conversation, detect_language
 from services.calendar import get_available_slots, book_appointment, format_slots_for_speech
 from services.sms import send_confirmation_sms
 from services.crm import create_lead, push_to_crm_backend
 
 router = APIRouter()
+
+# ========== FAQ HELPER FUNCTIONS ==========
+
+def detect_faq_intent(user_message: str):
+    """
+    Detects if user message matches any FAQ keywords
+    Returns the FAQ key if match found, else None
+    """
+    if not user_message:
+        return None
+        
+    user_message_lower = user_message.lower()
+    
+    for faq_key, faq_content in FAQ_DATA.items():
+        for keyword in faq_content["keywords"]:
+            if keyword.lower() in user_message_lower:
+                return faq_key
+    
+    return None
+
+
+def get_faq_response(faq_key: str, language: str):
+    """
+    Get the FAQ response in the appropriate language
+    """
+    if faq_key and faq_key in FAQ_DATA:
+        return FAQ_DATA[faq_key].get(language, FAQ_DATA[faq_key]["english"])
+    return None
+
+# ========== END FAQ FUNCTIONS ==========
+
+
+def log_faq_miss(user_message: str, call_sid: str, language: str):
+    """
+    Log when FAQ doesn't match user query for knowledge base improvement
+    """
+    import json
+    from datetime import datetime
+    
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "call_sid": call_sid,
+        "user_message": user_message,
+        "language": language,
+        "matched": False
+    }
+    
+    # Log to file (you can change this to database later)
+    try:
+        with open("/opt/nova/nova-voice-agent/backend/logs/faq_misses.log", "a") as f:
+            f.write(json.dumps(log_entry) + "\n")
+    except Exception as e:
+        print(f"Failed to log FAQ miss: {e}")
 
 @router.post("/voice/incoming")
 async def handle_incoming_call(CallSid: str = Form(...)):
@@ -68,6 +122,42 @@ async def process_speech(
         # Detect language from user's speech
         detected_lang = detect_language(SpeechResult)
         print(f"Detected language: {detected_lang}")
+
+        # ========== FAQ DETECTION ==========
+        faq_key = detect_faq_intent(SpeechResult)
+        
+        if faq_key:
+            print(f"FAQ detected: {faq_key}")
+            conversation = get_conversation(CallSid)
+            lang_code = 'es-MX' if detected_lang == 'es' else 'en-US'
+            voice = 'Google.es-US-Neural2-A' if detected_lang == 'es' else 'Google.en-US-Neural2-F'
+            
+            # Get FAQ answer in appropriate language
+            faq_answer = get_faq_response(faq_key, detected_lang)
+            
+            # Get follow-up question
+            followup = DEFAULT_RESPONSES["followup_spanish"] if detected_lang == 'es' else DEFAULT_RESPONSES["followup_english"]
+            
+            # Combine FAQ answer with follow-up
+            full_response = f"{faq_answer} {followup}"
+            
+            response = VoiceResponse()
+            gather = Gather(
+                input='speech',
+                action='/webhooks/voice/process',
+                speechTimeout='auto',
+                language=lang_code,
+                speech_model='experimental_conversations'
+            )
+            gather.say(full_response, voice=voice)
+            response.append(gather)
+            
+            fallback = "¿Sigues ahí?" if detected_lang == 'es' else "Hello? You still there?"
+            response.say(fallback, voice=voice)
+            response.redirect('/webhooks/voice/process')
+            
+            return Response(content=str(response), media_type="application/xml")
+        # ========== END FAQ DETECTION ==========
 
         # Generate AI response with detected language
         ai_response, extracted_data = generate_response(CallSid, SpeechResult, detected_lang)
