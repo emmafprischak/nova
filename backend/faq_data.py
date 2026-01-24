@@ -27,14 +27,14 @@ FAQ_DATA = {
         "spanish": "Depende. En muchos casos, el agente de IA trabaja junto a tu equipo, automatizando tareas repetitivas para que puedan concentrarse en lo más importante."
     },
     "pricing": {
-    "keywords": ["price", "cost", "pricing", "how much", "precio", "costo", "cuánto cuesta"],
-    "english": "Great question! Pricing depends on your specific needs and setup complexity. I'd love to have one of our team members give you a personalized quote. Would you like me to schedule a quick consultation?",
-    "spanish": "¡Buena pregunta! El precio depende de tus necesidades específicas y la complejidad de tu configuración. Me encantaría que alguien de nuestro equipo te dé una cotización personalizada. ¿Quieres que programe una breve consulta?"
-    },
-        "pricing": {
-        "keywords": ["price", "cost", "pricing", "how much", "precio", "costo", "cuánto cuesta"],
+     "keywords": ["price", "cost", "pricing", "how much", "precio", "costo", "cuánto cuesta"],
         "english": "Great question! Pricing depends on your specific needs and setup complexity. I'd love to have one of our team members give you a personalized quote. Would you like me to schedule a quick consultation?",
         "spanish": "¡Buena pregunta! El precio depende de tus necesidades específicas y la complejidad de tu configuración. Me encantaría que alguien de nuestro equipo te dé una cotización personalizada. ¿Quieres que programe una breve consulta?"
+    },
+    "escalate_to_human": {
+        "keywords": ["human", "person", "real person", "talk to someone", "speak to someone", "transfer", "representative", "agent", "humano", "persona real", "hablar con alguien", "transferir"],
+        "english": "No problem! I'll make sure someone from our team reaches out to you directly. Can I get your name and phone number so they can call you back?",
+        "spanish": "¡Claro! Me aseguraré de que alguien de nuestro equipo se comunique contigo directamente. ¿Me das tu nombre y número de teléfono para que te llamen?"
     },
     "timeline": {
         "keywords": ["how long", "timeline", "time", "setup", "cuánto tiempo", "plazo"],

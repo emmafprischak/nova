@@ -135,6 +135,14 @@ async def process_speech(
             # Get FAQ answer in appropriate language
             faq_answer = get_faq_response(faq_key, detected_lang)
             
+            # Log successful FAQ match
+            print(f"FAQ match logged: {faq_key}")
+            
+            # Special handling for human escalation
+            if faq_key == "escalate_to_human":
+                conversation.call_data.status = "needs_callback"
+                print("Human escalation requested - marking for callback")
+            
             # Get follow-up question
             followup = DEFAULT_RESPONSES["followup_spanish"] if detected_lang == 'es' else DEFAULT_RESPONSES["followup_english"]
             
@@ -157,6 +165,10 @@ async def process_speech(
             response.redirect('/webhooks/voice/process')
             
             return Response(content=str(response), media_type="application/xml")
+        else:
+            # Log FAQ miss - no match found
+            log_faq_miss(SpeechResult, CallSid, detected_lang)
+            print(f"FAQ miss logged for: {SpeechResult}")
         # ========== END FAQ DETECTION ==========
 
         # Generate AI response with detected language
