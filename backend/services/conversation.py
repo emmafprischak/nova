@@ -111,6 +111,45 @@ The JSON must come AFTER your spoken response and must not be part of what you s
     
     return assistant_message, extracted_data
 
+def generate_call_summary(call_sid: str) -> str:
+    """
+    Generate a summary of the call using OpenAI
+    
+    Returns:
+        str: A concise summary of the call
+    """
+    conversation = get_conversation(call_sid)
+    
+    # Build the conversation transcript
+    transcript = []
+    for msg in conversation.messages:
+        speaker = "Customer" if msg.role == "user" else "Nova"
+        transcript.append(f"{speaker}: {msg.content}")
+    
+    transcript_text = "\n".join(transcript)
+    
+    # Create a summary prompt
+    summary_prompt = f"""Summarize this customer service call in 2-3 sentences. Include:
+- Customer's name and what they needed
+- Whether an appointment was booked
+- Any important follow-up actions
+
+Call Transcript:
+{transcript_text}"""
+    
+    # Call OpenAI to generate summary
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that summarizes customer service calls concisely."},
+            {"role": "user", "content": summary_prompt}
+        ],
+        temperature=0.3,
+        max_tokens=150
+    )
+    
+    return response.choices[0].message.content
+
 def end_conversation(call_sid: str):
     """Clean up conversation when call ends"""
     if call_sid in active_conversations:

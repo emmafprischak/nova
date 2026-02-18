@@ -8,7 +8,7 @@ import os
 import traceback
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.conversation import generate_response, get_conversation, end_conversation, detect_language
+from services.conversation import generate_response, get_conversation, end_conversation, detect_language, generate_call_summary
 from services.calendar import get_available_slots, book_appointment, format_slots_for_speech
 from services.sms import send_confirmation_sms
 from services.crm import create_lead, push_to_crm_backend
@@ -244,21 +244,37 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
 
     try:
         if CallStatus == "completed":
-            conversation = get_conversation(CallSid)
-            if conversation.call_data.status == "new":
-                conversation.call_data.status = "no_booking"
+            try:
+                conversation = get_conversation(CallSid)
+                
+                # Generate AI summary
+                summary = generate_call_summary(CallSid)
+                print(f"📋 Call Summary:\n{summary}\n")
+                
+                # Update status if needed
+                if conversation.call_data.status == "new":
+                    conversation.call_data.status = "no_booking"
+                
+                # Save to Notion
                 try:
                     await create_lead(conversation.call_data, CallSid)
                 except Exception as e:
                     print(f"Failed to save lead on completion: {e}")
                 
-                # Push to CRM backend
+                # Push to CRM backend with summary
                 try:
-                    await push_to_crm_backend(conversation.call_data, CallSid)
+                    await push_to_crm_backend(
+                        call_data=conversation.call_data,
+                        call_sid=CallSid,
+                        summary=summary
+                    )
                 except Exception as e:
                     print(f"Failed to push to CRM backend on completion: {e}")
-
-            end_conversation(CallSid)
+                    
+            except Exception as e:
+                print(f"❌ Error in call completion: {e}")
+            finally:
+                end_conversation(CallSid)
 
         return {"status": "received"}
     except Exception as e:
