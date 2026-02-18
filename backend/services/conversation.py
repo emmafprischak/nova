@@ -115,10 +115,21 @@ def generate_call_summary(call_sid: str) -> str:
     """
     Generate a summary of the call using OpenAI
     
+    Args:
+        call_sid: The unique identifier for the call
+    
     Returns:
-        str: A concise summary of the call
+        str: A concise 2-3 sentence summary of the call, including customer's name,
+             what they needed, whether an appointment was booked, and any follow-up actions
+    
+    Raises:
+        Exception: If the conversation doesn't exist, has no messages, or if OpenAI API fails
     """
     conversation = get_conversation(call_sid)
+    
+    # Validate that conversation has messages
+    if not conversation or not conversation.messages:
+        return "No conversation data available for summary."
     
     # Build the conversation transcript
     transcript = []

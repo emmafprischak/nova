@@ -247,9 +247,14 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
             try:
                 conversation = get_conversation(CallSid)
                 
-                # Generate AI summary
-                summary = generate_call_summary(CallSid)
-                print(f"📋 Call Summary:\n{summary}\n")
+                # Generate AI summary with specific error handling
+                summary = None
+                try:
+                    summary = generate_call_summary(CallSid)
+                    print(f"📋 Call Summary:\n{summary}\n")
+                except Exception as summary_error:
+                    print(f"⚠️  Failed to generate call summary: {summary_error}")
+                    # Continue with CRM push even if summary generation fails
                 
                 # Update status if needed
                 if conversation.call_data.status == "new":
@@ -261,7 +266,7 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 except Exception as e:
                     print(f"Failed to save lead on completion: {e}")
                 
-                # Push to CRM backend with summary
+                # Push to CRM backend with summary (will be None if generation failed)
                 try:
                     await push_to_crm_backend(
                         call_data=conversation.call_data,

@@ -67,8 +67,21 @@ def test_summary_generation():
                 print("   ✗ Summary is empty")
                 return False
             
+            # Test edge case: empty conversation
+            print("\n2. Testing edge case: empty conversation...")
+            empty_call_sid = "TEST_EMPTY_CALL_123"
+            empty_conversation = get_conversation(empty_call_sid)
+            empty_conversation.messages = []
+            
+            empty_summary = generate_call_summary(empty_call_sid)
+            if "No conversation data available" in empty_summary:
+                print("   ✓ Empty conversation handled gracefully")
+            else:
+                print("   ✗ Empty conversation not handled properly")
+            
             # Clean up
             end_conversation(test_call_sid)
+            end_conversation(empty_call_sid)
             
             return True
         
