@@ -174,6 +174,18 @@ async def process_speech(
         # Generate AI response with detected language
         ai_response, extracted_data = generate_response(CallSid, SpeechResult, detected_lang)
 
+        # After: ai_response, extracted_data = generate_response(...)
+
+# Check for escalation
+if extracted_data.get("escalate"):
+    response = VoiceResponse()
+    response.say(ai_response, voice=voice)
+    
+    # Transfer to human (update phone number)
+    response.dial("+18145550100")  # Your team's phone number
+    
+    return Response(content=str(response), media_type="application/xml")
+
         print(f"Nova says: {ai_response}")
         print(f"Extracted: {extracted_data}")
 
@@ -348,6 +360,27 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
     try:
         if CallStatus == "completed":
             conversation = get_conversation(CallSid)
+            try:
+                from services.transcript import generate_call_summary, save_summary_to_file
+                
+                summary = await generate_call_summary(
+                    messages=conversation.messages,
+                    call_data={
+                        "name": conversation.call_data.name,
+                        "phone": conversation.call_data.phone,
+                        "email": conversation.call_data.email,
+                        "service": conversation.call_data.service,
+                        "appointment_time": conversation.call_data.appointment_time,
+                        "status": conversation.call_data.status,
+                        "discovery_answers": conversation.call_data.discovery_answers,
+                    }
+                )
+                
+                filepath = save_summary_to_file(CallSid, summary)
+                print(f"✅ Saved call summary: {filepath}")
+            except Exception as e:
+                print(f"❌ Error generating summary: {e}")
+
             if conversation.call_data.status == "new":
                 conversation.call_data.status = "no_booking"
                 try:

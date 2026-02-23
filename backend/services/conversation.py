@@ -60,8 +60,34 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
     # Detect language if provided
     if detected_language:
         conversation.language = detected_language
+    from services.escalation import should_escalate_to_human, generate_escalation_message, log_escalation
+
+def generate_response(call_sid: str, user_message: str, detected_language: str = None):
+    conversation = get_conversation(call_sid)
+    conversation.messages.append(Message(role="user", content=user_message))
     
-    # FR-08: Extract discovery answers from user input
+    # NEW: Check for escalation
+    failed_attempts = getattr(conversation, 'failed_extraction_count', 0)
+    
+    should_escalate, reason = should_escalate_to_human(
+        user_input=user_message,
+        conversation_messages=conversation.messages,
+        language=conversation.language,
+        failed_attempts=failed_attempts
+    )
+    
+    if should_escalate:
+        log_escalation(call_sid, reason, {
+            "name": conversation.call_data.name,
+            "phone": conversation.call_data.phone,
+        })
+        
+        conversation.call_data.status = "needs_human"
+        escalation_msg = generate_escalation_message(reason, conversation.language)
+        
+        return escalation_msg, {"escalate": True}
+    
+        # FR-08: Extract discovery answers from user input
     if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
         conversation.call_data.discovery_answers = extract_discovery_answers(
             user_message,
