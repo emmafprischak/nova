@@ -9,6 +9,13 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import OPENAI_API_KEY, NOVA_SYSTEM_PROMPT_EN, NOVA_SYSTEM_PROMPT_ES
 from models import ConversationState, Message
 import json
+# FR-08: Discovery questions integration
+from services.discovery import (
+    extract_discovery_answers,
+    has_sufficient_discovery_data,
+    DISCOVERY_SYSTEM_PROMPT
+)
+from services.calendar_cancellation import is_cancellation_request
 
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -53,10 +60,27 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
     # Detect language if provided
     if detected_language:
         conversation.language = detected_language
+    
+    # FR-08: Extract discovery answers from user input
+    if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
+        conversation.call_data.discovery_answers = extract_discovery_answers(
+            user_message,
+            conversation.call_data.discovery_answers
+        )
+        
+        # Check if we have enough discovery data to move forward
+        if has_sufficient_discovery_data(conversation.call_data.discovery_answers):
+            conversation.discovery_complete = True
+            # You can transition to booking stage here if you use stages
+            # conversation.stage = 'booking'
 
     # Select the appropriate system prompt
-    system_prompt = NOVA_SYSTEM_PROMPT_ES if conversation.language == 'es' else NOVA_SYSTEM_PROMPT_EN
 
+    # Use discovery prompt during discovery stage, otherwise use default
+    if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
+        system_prompt = DISCOVERY_SYSTEM_PROMPT
+    else:
+        system_prompt = NOVA_SYSTEM_PROMPT_ES if conversation.language == 'es' else NOVA_SYSTEM_PROMPT_EN
     # Build messages for OpenAI
     messages = [{"role": "system", "content": system_prompt}]
 
