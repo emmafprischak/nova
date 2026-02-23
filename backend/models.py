@@ -13,14 +13,7 @@ class CallData(BaseModel):
     appointment_time: Optional[str] = None
     status: str = "new"
     notes: str = ""
-    class CallData(BaseModel):
-    # ... your existing fields ...
-    
-    # NEW: For appointment cancellation
-    booking_uid: Optional[str] = None
-    
-    # NEW: For discovery questions
-    discovery_answers: dict = {}
+   
     
 class Message(BaseModel):
     """Represents a single message in the conversation"""
