@@ -5,7 +5,7 @@ Appointment Cancellation via Cal.com API
 import httpx
 import logging
 from typing import Optional
-from backend.config import settings
+from config import CAL_API_KEY
 
 logger = logging.getLogger(__name__)
 

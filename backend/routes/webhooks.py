@@ -260,7 +260,8 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
             if booking_result["success"]:
                 conversation.call_data.appointment_time = selected_slot["datetime"]
                 conversation.call_data.status = "booked"
-
+                conversation.call_data.booking_uid = booking_result.get("booking_id") or booking_result.get("uid")
+                
                 print("Booking successful, sending SMS...")
                 # Send SMS
                 try:
