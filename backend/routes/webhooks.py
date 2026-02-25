@@ -479,10 +479,8 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 except Exception as e:
                     print(f"Failed to push to CRM backend on completion: {e}")
                     
-            except Exception as e:
-                print(f"❌ Error in call completion: {e}")
-            finally:
-                end_conversation(CallSid)
+
+            end_conversation(CallSid)
 
         return {"status": "received"}
     except Exception as e:
