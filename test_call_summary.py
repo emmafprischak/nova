@@ -130,6 +130,14 @@ async def test_crm_push_with_summary():
                     print(f"   ✓ Summary correctly included in payload")
                 else:
                     print(f"   ✗ Summary not found in payload")
+                if 'escalation_status' in payload:
+                    print(f"   ✓ escalation_status correctly included in payload: {payload['escalation_status']}")
+                else:
+                    print(f"   ✗ escalation_status not found in payload")
+                if 'timestamp' in payload:
+                    print(f"   ✓ timestamp correctly included in payload: {payload['timestamp']}")
+                else:
+                    print(f"   ✗ timestamp not found in payload")
             return mock_response
         
         # Mock httpx.AsyncClient
@@ -168,6 +176,96 @@ async def test_crm_push_with_summary():
         traceback.print_exc()
         return False
 
+async def test_crm_payload_new_fields():
+    """Test that escalation_status and timestamp are included and valid in CRM payload"""
+    print("\n" + "="*60)
+    print("Testing CRM Payload New Fields (escalation_status, timestamp)...")
+    print("="*60)
+
+    import re
+    from datetime import datetime, timezone
+
+    ISO8601_Z_RE = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$')
+    VALID_ESCALATION_STATUSES = {"none", "pending", "escalated", "resolved"}
+
+    captured = {}
+
+    test_call_data = CallData(
+        name="Payload Test",
+        phone="+15550000001",
+        email="payload@example.com",
+        service="Test",
+        status="booked",
+        appointment_time=None,
+        notes=""
+    )
+
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.text = '{"success": true}'
+    mock_response.json = Mock(return_value={"success": True})
+    mock_response.raise_for_status = Mock()
+
+    async def mock_post(*args, **kwargs):
+        if 'json' in kwargs:
+            captured.update(kwargs['json'])
+        return mock_response
+
+    mock_client = MagicMock()
+    mock_client.post = mock_post
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+        async def __aenter__(self):
+            return mock_client
+        async def __aexit__(self, *args):
+            pass
+
+    try:
+        with patch('httpx.AsyncClient', MockAsyncClient):
+            await push_to_crm_backend(
+                call_data=test_call_data,
+                call_sid="TEST_FIELDS_789",
+                escalation_status="pending",
+            )
+
+        ok = True
+
+        if 'escalation_status' in captured:
+            status = captured['escalation_status']
+            if status in VALID_ESCALATION_STATUSES:
+                print(f"   ✓ escalation_status='{status}' is valid")
+            else:
+                print(f"   ✗ escalation_status='{status}' is not a recognised value")
+                ok = False
+        else:
+            print("   ✗ escalation_status missing from payload")
+            ok = False
+
+        if 'timestamp' in captured:
+            ts = captured['timestamp']
+            if ISO8601_Z_RE.match(ts):
+                print(f"   ✓ timestamp='{ts}' is valid ISO-8601 UTC")
+            else:
+                print(f"   ✗ timestamp='{ts}' does not match ISO-8601 Z format")
+                ok = False
+        else:
+            print("   ✗ timestamp missing from payload")
+            ok = False
+
+        if ok:
+            print("\n✅ SUCCESS: New CRM payload fields are present and valid")
+        else:
+            print("\n❌ FAILED: One or more new payload fields are missing or invalid")
+        return ok
+
+    except Exception as e:
+        print(f"\n❌ FAILED: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 async def main():
     """Run all tests"""
     print("\n" + "="*60)
@@ -179,16 +277,20 @@ async def main():
     
     # Test CRM push with summary
     crm_ok = await test_crm_push_with_summary()
+
+    # Test new CRM payload fields
+    fields_ok = await test_crm_payload_new_fields()
     
     # Summary
     print("\n" + "="*60)
     print("TEST SUMMARY")
     print("="*60)
-    print(f"Summary Generation:  {'✅ WORKING' if summary_ok else '❌ FAILED'}")
-    print(f"CRM Push w/ Summary: {'✅ WORKING' if crm_ok else '❌ FAILED'}")
+    print(f"Summary Generation:       {'✅ WORKING' if summary_ok else '❌ FAILED'}")
+    print(f"CRM Push w/ Summary:      {'✅ WORKING' if crm_ok else '❌ FAILED'}")
+    print(f"CRM Payload New Fields:   {'✅ WORKING' if fields_ok else '❌ FAILED'}")
     print("="*60 + "\n")
     
-    if summary_ok and crm_ok:
+    if summary_ok and crm_ok and fields_ok:
         print("🎉 All call summary tests passed!")
         return 0
     else:
