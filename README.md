@@ -157,9 +157,18 @@ Example payload:
   "name": "from nova",
   "email": "from nova",
   "phone": "from nova",
-  "tenant_code": "walmart"
+  "tenant_code": "walmart",
+  "summary": "Caller booked an AI consulting appointment.",
+  "escalation_status": "none",
+  "timestamp": "2024-03-20T15:30:00Z"
 }
 ```
+
+`escalation_status` reflects the outcome of the call:
+- `"none"` — successful booking or completed call with no issues
+- `"pending"` — booking failed or caller requested a callback (needs follow-up)
+- `"escalated"` — call was transferred to a human agent
+- `"resolved"` — issue resolved after escalation
 
 ### Error Handling
 
