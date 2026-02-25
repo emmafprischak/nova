@@ -86,7 +86,7 @@ async def create_lead(call_data: CallData, call_sid: str) -> dict:
         traceback.print_exc()
         return {"success": False, "error": str(e)}
 
-async def push_to_crm_backend(call_data: CallData, call_sid: str = None) -> dict:
+async def push_to_crm_backend(call_data: CallData, call_sid: str = None, summary: str = None) -> dict:
     """
     Push contact/call data to the public CRM endpoint.
 
@@ -110,6 +110,7 @@ async def push_to_crm_backend(call_data: CallData, call_sid: str = None) -> dict
             "email": call_data.email or "novaisnotworking@orbyn.ai",
             "phone": call_data.phone or "(555)555-5555",
             "tenant_code": CRM_TENANT_CODE,
+            "summary": summary or "",
         }
 
         # Include extra context in optional notes field if accepted by backend
