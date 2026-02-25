@@ -1,0 +1,105 @@
+"""
+Discovery & Qualification Questions
+Helps qualify leads before booking appointments.
+"""
+
+from typing import Optional
+from enum import Enum
+
+
+class DiscoveryQuestion(str, Enum):
+    """Questions we ask to qualify leads."""
+    TIMELINE = "timeline"
+    BUDGET = "budget"
+    DECISION_MAKER = "decision_maker"
+
+
+# Question templates
+QUESTION_PROMPTS = {
+    DiscoveryQuestion.TIMELINE: {
+        "text": "When are you looking to get started?",
+        "cues": ["ASAP", "this week", "this month", "just exploring"]
+    },
+    DiscoveryQuestion.BUDGET: {
+        "text": "Do you have a budget in mind, or would you like an estimate first?",
+        "cues": ["specific budget", "rough range", "need estimate", "no idea"]
+    },
+    DiscoveryQuestion.DECISION_MAKER: {
+        "text": "Are you the main decision-maker, or will others be involved?",
+        "cues": ["just me", "joint decision", "someone else", "not sure"]
+    },
+}
+
+
+# System prompt for discovery stage
+DISCOVERY_SYSTEM_PROMPT = """You are Nova, a friendly AI assistant for Orbyn.ai.
+
+After greeting the caller and learning their name, ask a few quick questions 
+to understand their needs better:
+
+1. TIMELINE: "When are you looking to get started?" 
+   → Listen for urgency cues like "ASAP", "this week", "just exploring"
+
+2. BUDGET: "Do you have a budget in mind, or would you like an estimate first?"
+   → Note if they have a specific number, rough range, or need guidance
+
+3. DECISION MAKER: "Are you the main decision-maker, or will others be involved?"
+   → Helps us know if this is a quick decision or needs approval
+
+Keep it conversational. Don't interrogate them. If they volunteer info naturally, don't ask again.
+
+After you have answers (or they decline), move to booking their appointment.
+"""
+
+
+def has_sufficient_discovery_data(answers: dict) -> bool:
+    """
+    Returns True if we have at least 2 of the 3 key questions answered.
+    """
+    answered = sum(
+        1 for q in [DiscoveryQuestion.TIMELINE, DiscoveryQuestion.BUDGET, DiscoveryQuestion.DECISION_MAKER]
+        if answers.get(q)
+    )
+    return answered >= 2
+
+
+def extract_discovery_answers(user_input: str, current_answers: dict) -> dict:
+    """
+    Extract discovery answers from user's response.
+    Returns updated answers dict.
+    """
+    lower = user_input.lower()
+    answers = current_answers.copy()
+    
+    # Timeline detection
+    if not answers.get(DiscoveryQuestion.TIMELINE):
+        if any(word in lower for word in ["asap", "soon as possible", "urgent", "emergency"]):
+            answers[DiscoveryQuestion.TIMELINE] = "ASAP"
+        elif any(word in lower for word in ["this week", "next week", "few days"]):
+            answers[DiscoveryQuestion.TIMELINE] = "this week"
+        elif "this month" in lower or "next month" in lower:
+            answers[DiscoveryQuestion.TIMELINE] = "this month"
+        elif any(word in lower for word in ["exploring", "just looking", "browsing"]):
+            answers[DiscoveryQuestion.TIMELINE] = "just exploring"
+    
+    # Budget detection
+    if not answers.get(DiscoveryQuestion.BUDGET):
+        if "specific budget" in lower or "have a budget" in lower or any(c.isdigit() for c in user_input):
+            answers[DiscoveryQuestion.BUDGET] = "has budget"
+        elif "rough range" in lower or "ballpark" in lower:
+            answers[DiscoveryQuestion.BUDGET] = "rough range"
+        elif "estimate" in lower or "quote" in lower:
+            answers[DiscoveryQuestion.BUDGET] = "need estimate"
+        elif "no idea" in lower or "not sure" in lower:
+            answers[DiscoveryQuestion.BUDGET] = "no idea"
+    
+    # Decision-maker detection
+    if not answers.get(DiscoveryQuestion.DECISION_MAKER):
+        if any(word in lower for word in ["just me", "i decide", "i'm the", "my decision"]):
+            answers[DiscoveryQuestion.DECISION_MAKER] = "sole decision-maker"
+        elif any(word in lower for word in ["spouse", "partner", "wife", "husband"]):
+            answers[DiscoveryQuestion.DECISION_MAKER] = "joint decision"
+        elif "someone else" in lower:
+            answers[DiscoveryQuestion.DECISION_MAKER] = "not decision-maker"
+    
+    return answers
