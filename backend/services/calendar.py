@@ -152,7 +152,7 @@ def format_slots_for_speech(slots: list[dict]) -> str:
 
 async def find_booking_by_phone(phone: str) -> dict:
     """
-    Find upcoming bookings for a phone number.
+    Find upcoming bookings for a phone number using v1 API.
     
     Args:
         phone: Phone number to search for
@@ -161,26 +161,20 @@ async def find_booking_by_phone(phone: str) -> dict:
         dict with success: bool, bookings: list of booking dicts
     """
     try:
-        url = f"https://api.cal.com/v2/bookings"
+        url = f"https://api.cal.com/v1/bookings"
         
-        headers = {
-            "Authorization": f"Bearer {CAL_API_KEY}",
-            "Content-Type": "application/json",
-            "cal-api-version": "2024-08-13"
-        }
-        
-        # Get bookings with status "accepted" (upcoming)
+        # Get bookings - v1 API doesn't require cal-api-version header
         params = {
-            "status": "accepted",
-            "limit": 100  # Get recent bookings
+            "apiKey": CAL_API_KEY,
+            "status": "accepted"  # Only upcoming bookings
         }
         
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, headers=headers, params=params)
+            response = await client.get(url, params=params)
             response.raise_for_status()
             result = response.json()
             
-            bookings = result.get("data", [])
+            bookings = result.get("bookings", [])
             
             # Filter by phone number in metadata
             matching_bookings = []
