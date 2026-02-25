@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import NOTION_TOKEN, NOTION_DATABASE_ID, NOTION_API_URL, CRM_BACKEND_URL, CRM_TENANT_CODE
 from models import CallData
-from datetime import datetime
+from datetime import datetime, timezone
 
 async def create_lead(call_data: CallData, call_sid: str) -> dict:
     """Create a new lead entry in Notion"""
@@ -86,13 +86,20 @@ async def create_lead(call_data: CallData, call_sid: str) -> dict:
         traceback.print_exc()
         return {"success": False, "error": str(e)}
 
-async def push_to_crm_backend(call_data: CallData, call_sid: str = None) -> dict:
+async def push_to_crm_backend(
+    call_data: CallData,
+    call_sid: str = None,
+    summary: str = None,
+    escalation_status: str | None = None,
+    timestamp: str | None = None,
+) -> dict:
     """
     Push contact/call data to the public CRM endpoint.
 
     The new endpoint expects only contact basics plus the tenant code:
     POST {base_url}/public/submit-contact
-    Body: {"name", "email", "phone", "tenant_code"}
+    Body: {"name", "email", "phone", "tenant_code", "summary",
+           "escalation_status", "timestamp"}
     """
     if not CRM_BACKEND_URL:
         print("CRM backend URL not configured (CRM_BACKEND_URL missing), skipping push")
@@ -110,6 +117,9 @@ async def push_to_crm_backend(call_data: CallData, call_sid: str = None) -> dict
             "email": call_data.email or "novaisnotworking@orbyn.ai",
             "phone": call_data.phone or "(555)555-5555",
             "tenant_code": CRM_TENANT_CODE,
+            "summary": summary or "",
+            "escalation_status": escalation_status or "none",
+            "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
 
         # Include extra context in optional notes field if accepted by backend

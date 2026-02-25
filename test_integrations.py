@@ -101,7 +101,11 @@ async def test_crm_backend():
             notes="This is a test entry to verify CRM backend integration"
         )
 
-        result = await push_to_crm_backend(test_call_data, "TEST_CRM_CALL_SID_456")
+        result = await push_to_crm_backend(
+            test_call_data,
+            "TEST_CRM_CALL_SID_456",
+            escalation_status="none",
+        )
 
         if result.get("success"):
             print(f"✅ SUCCESS: Contact pushed to CRM backend")

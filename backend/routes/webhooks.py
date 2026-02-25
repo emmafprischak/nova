@@ -370,7 +370,7 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
                 # Push to CRM backend
                 print("Pushing to CRM backend...")
                 try:
-                    await push_to_crm_backend(conversation.call_data, CallSid)
+                    await push_to_crm_backend(conversation.call_data, CallSid, escalation_status="none")
                 except Exception as crm_error:
                     print(f"CRM backend error (non-fatal): {crm_error}")
 
@@ -414,7 +414,7 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
         
         # Push to CRM backend
         try:
-            await push_to_crm_backend(conversation.call_data, CallSid)
+            await push_to_crm_backend(conversation.call_data, CallSid, escalation_status="pending")
         except Exception as e:
             print(f"Failed to push to CRM backend: {e}")
 
@@ -468,13 +468,21 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 except Exception as e:
                     print(f"Failed to save lead on completion: {e}")
                 
-                # Push to CRM backend
+                # Push to CRM backend with summary (will be None if generation failed)
                 try:
-                    await push_to_crm_backend(conversation.call_data, CallSid)
+                    await push_to_crm_backend(
+                        call_data=conversation.call_data,
+                        call_sid=CallSid,
+                        summary=summary,
+                        escalation_status="none",
+                    )
                 except Exception as e:
                     print(f"Failed to push to CRM backend on completion: {e}")
-
-            end_conversation(CallSid)
+                    
+            except Exception as e:
+                print(f"❌ Error in call completion: {e}")
+            finally:
+                end_conversation(CallSid)
 
         return {"status": "received"}
     except Exception as e:
