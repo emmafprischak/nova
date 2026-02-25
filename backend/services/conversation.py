@@ -10,6 +10,30 @@ from config import OPENAI_API_KEY, NOVA_SYSTEM_PROMPT_EN, NOVA_SYSTEM_PROMPT_ES
 from models import ConversationState, Message
 import json
 
+# FR-08: Discovery questions integration
+from services.discovery import (
+    extract_discovery_answers,
+    has_sufficient_discovery_data,
+    DISCOVERY_SYSTEM_PROMPT
+)
+from services.calendar_cancellation import is_cancellation_request
+
+# FR-13: Name spelling
+from services.name_spelling import (
+    generate_spelling_confirmation,
+    detect_spelling_correction,
+    generate_correction_request,
+    extract_spelled_name,
+    split_full_name
+)
+
+# Escalation
+from services.escalation import (
+    should_escalate_to_human,
+    generate_escalation_message,
+    log_escalation
+)
+
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -53,10 +77,103 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
     # Detect language if provided
     if detected_language:
         conversation.language = detected_language
+    
+    # Check for escalation
+    failed_attempts = getattr(conversation, 'failed_extraction_count', 0)
+    
+    should_escalate, reason = should_escalate_to_human(
+        user_input=user_message,
+        conversation_messages=conversation.messages,
+        language=conversation.language,
+        failed_attempts=failed_attempts
+    )
+    
+    if should_escalate:
+        log_escalation(call_sid, reason, {
+            "name": conversation.call_data.name,
+            "phone": conversation.call_data.phone,
+        })
+        
+        conversation.call_data.status = "needs_human"
+        escalation_msg = generate_escalation_message(reason, conversation.language)
+        
+        return escalation_msg, {"escalate": True}
+    
+    # FR-13: Handle spelling confirmation response
+    if hasattr(conversation, 'awaiting_name_confirmation') and conversation.awaiting_name_confirmation:
+        
+        # Check if they said it's wrong
+        if detect_spelling_correction(user_message):
+            conversation.spelling_attempts += 1
+            
+            # First wrong attempt: try NATO phonetic for clarity
+            if conversation.spelling_attempts == 1:
+                conversation.awaiting_name_confirmation = True  # Still confirming
+                
+                nato_spelling = generate_spelling_confirmation(
+                    conversation.call_data.name,
+                    conversation.language,
+                    use_nato=True  # NOW use NATO alphabet
+                )
+                
+                return nato_spelling, {}
+            
+            # Second wrong attempt: ask them to spell it
+            else:
+                conversation.awaiting_spelling_correction = True
+                conversation.awaiting_name_confirmation = False
+                
+                correction_request = generate_correction_request(conversation.language)
+                return correction_request, {}
+        else:
+            # They confirmed it's correct
+            conversation.name_confirmed = True
+            conversation.awaiting_name_confirmation = False
+            
+            # Continue normal conversation - let AI respond naturally
+    
+    # FR-13: Handle letter-by-letter spelling
+    if hasattr(conversation, 'awaiting_spelling_correction') and conversation.awaiting_spelling_correction:
+        # Extract the spelled name
+        corrected_name = extract_spelled_name(user_message)
+        
+        if corrected_name:
+            # Get first name from original
+            first, _ = split_full_name(conversation.call_data.name)
+            
+            # Update with corrected last name
+            conversation.call_data.name = f"{first} {corrected_name}".strip()
+            conversation.name_confirmed = True
+            conversation.awaiting_spelling_correction = False
+            
+            # Confirm we got it
+            if conversation.language == 'es':
+                confirmation = f"Perfecto, {conversation.call_data.name}. Gracias."
+            else:
+                confirmation = f"Got it, {conversation.call_data.name}. Thank you."
+            
+            return confirmation, {"name": conversation.call_data.name}
+    
+    # FR-08: Extract discovery answers from user input
+    if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
+        conversation.call_data.discovery_answers = extract_discovery_answers(
+            user_message,
+            conversation.call_data.discovery_answers
+        )
+        
+        # Check if we have enough discovery data to move forward
+        if has_sufficient_discovery_data(conversation.call_data.discovery_answers):
+            conversation.discovery_complete = True
+            # You can transition to booking stage here if you use stages
+            # conversation.stage = 'booking'
 
     # Select the appropriate system prompt
-    system_prompt = NOVA_SYSTEM_PROMPT_ES if conversation.language == 'es' else NOVA_SYSTEM_PROMPT_EN
-
+    # Use discovery prompt during discovery stage, otherwise use default
+    if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
+        system_prompt = DISCOVERY_SYSTEM_PROMPT
+    else:
+        system_prompt = NOVA_SYSTEM_PROMPT_ES if conversation.language == 'es' else NOVA_SYSTEM_PROMPT_EN
+    
     # Build messages for OpenAI
     messages = [{"role": "system", "content": system_prompt}]
 
@@ -97,6 +214,31 @@ The JSON must come AFTER your spoken response and must not be part of what you s
             # Update call data
             if extracted_data.get("name"):
                 conversation.call_data.name = extracted_data["name"]
+                
+                # FR-13: Check if we should spell the name
+                if not hasattr(conversation, 'name_confirmed'):
+                    conversation.name_confirmed = False
+                    conversation.spelling_attempts = 0
+                
+                if not conversation.name_confirmed:
+                    first, last = split_full_name(extracted_data["name"])
+                    
+                    # Only spell if there's a last name
+                    if last:
+                        # Start with simple spelling (no NATO)
+                        spelling = generate_spelling_confirmation(
+                            extracted_data["name"], 
+                            conversation.language,
+                            use_nato=False  # Simple spelling first
+                        )
+                        
+                        if spelling:
+                            # Mark that we're now waiting for spelling confirmation
+                            conversation.awaiting_name_confirmation = True
+                            
+                            # Return the spelling instead of the normal response
+                            return spelling, extracted_data
+            
             if extracted_data.get("phone"):
                 conversation.call_data.phone = extracted_data["phone"]
             if extracted_data.get("email"):
@@ -104,10 +246,27 @@ The JSON must come AFTER your spoken response and must not be part of what you s
             if extracted_data.get("service"):
                 conversation.call_data.service = extracted_data["service"]
             
+            # Check if we got useful data
+            if not any([
+                extracted_data.get("name"),
+                extracted_data.get("phone"),
+                extracted_data.get("email")
+            ]):
+                # Extraction failed - increment counter
+                if not hasattr(conversation, 'failed_extraction_count'):
+                    conversation.failed_extraction_count = 0
+                conversation.failed_extraction_count += 1
+            else:
+                # Reset counter on success
+                conversation.failed_extraction_count = 0
+            
             # Remove JSON from response
             assistant_message = assistant_message[:json_start].strip()
     except:
-        pass
+        # JSON parsing failed
+        if not hasattr(conversation, 'failed_extraction_count'):
+            conversation.failed_extraction_count = 0
+        conversation.failed_extraction_count += 1
     
     return assistant_message, extracted_data
 

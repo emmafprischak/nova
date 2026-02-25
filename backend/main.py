@@ -5,8 +5,8 @@ Run this file to start the server: python main.py
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import webhooks, health
-from config import HOST, PORT
+from backend.routes import webhooks, health
+from backend.config import HOST, PORT
 import uvicorn
 
 @asynccontextmanager
