@@ -174,17 +174,19 @@ async def process_speech(
         # Generate AI response with detected language
         ai_response, extracted_data = generate_response(CallSid, SpeechResult, detected_lang)
 
-        # After: ai_response, extracted_data = generate_response(...)
-
-# Check for escalation
-if extracted_data.get("escalate"):
-    response = VoiceResponse()
-    response.say(ai_response, voice=voice)
-    
-    # Transfer to human (update phone number)
-    response.dial("+18145550100")  # Your team's phone number
-    
-    return Response(content=str(response), media_type="application/xml")
+        # Check for escalation
+        if extracted_data.get("escalate"):
+            conversation = get_conversation(CallSid)
+            lang_code = 'es-MX' if conversation.language == 'es' else 'en-US'
+            voice = 'Google.es-US-Neural2-A' if conversation.language == 'es' else 'Google.en-US-Neural2-F'
+            
+            response = VoiceResponse()
+            response.say(ai_response, voice=voice)
+            
+            # Transfer to human (update phone number)
+            response.dial("+18145550100")  # Your team's phone number
+            
+            return Response(content=str(response), media_type="application/xml")
 
         print(f"Nova says: {ai_response}")
         print(f"Extracted: {extracted_data}")
@@ -272,6 +274,8 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
             if booking_result["success"]:
                 conversation.call_data.appointment_time = selected_slot["datetime"]
                 conversation.call_data.status = "booked"
+                
+                # FR-08: Save booking UID for cancellation
                 conversation.call_data.booking_uid = booking_result.get("booking_id") or booking_result.get("uid")
                 
                 print("Booking successful, sending SMS...")
@@ -360,6 +364,8 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
     try:
         if CallStatus == "completed":
             conversation = get_conversation(CallSid)
+            
+            # Generate call summary
             try:
                 from services.transcript import generate_call_summary, save_summary_to_file
                 

@@ -10,7 +10,7 @@ from config import CAL_API_KEY
 logger = logging.getLogger(__name__)
 
 CAL_API_URL = "https://api.cal.com/v1"
-CAL_API_KEY = settings.CAL_API_KEY
+CAL_API_KEY = CAL_API_KEY
 
 
 async def cancel_appointment(booking_uid: str, reason: Optional[str] = None) -> dict:
