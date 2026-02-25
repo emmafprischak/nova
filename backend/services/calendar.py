@@ -148,3 +148,65 @@ def format_slots_for_speech(slots: list[dict]) -> str:
             parts.append(f"{day_name} at {times_str}")
 
     return "I have openings " + ", ".join(parts) + ". Which works best for you?"
+
+
+async def find_booking_by_phone(phone: str) -> dict:
+    """
+    Find upcoming bookings for a phone number.
+    
+    Args:
+        phone: Phone number to search for
+        
+    Returns:
+        dict with success: bool, bookings: list of booking dicts
+    """
+    try:
+        url = f"https://api.cal.com/v2/bookings"
+        
+        headers = {
+            "Authorization": f"Bearer {CAL_API_KEY}",
+            "Content-Type": "application/json",
+            "cal-api-version": "2024-08-13"
+        }
+        
+        # Get bookings with status "accepted" (upcoming)
+        params = {
+            "status": "accepted",
+            "limit": 100  # Get recent bookings
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            bookings = result.get("data", [])
+            
+            # Filter by phone number in metadata
+            matching_bookings = []
+            for booking in bookings:
+                metadata = booking.get("metadata", {})
+                booking_phone = metadata.get("phone", "")
+                
+                # Normalize phone numbers for comparison (remove non-digits)
+                import re
+                normalized_search = re.sub(r'\D', '', phone)
+                normalized_booking = re.sub(r'\D', '', booking_phone)
+                
+                if normalized_search and normalized_booking and normalized_search in normalized_booking:
+                    matching_bookings.append({
+                        "id": booking.get("id"),
+                        "uid": booking.get("uid"),
+                        "start": booking.get("start"),
+                        "attendee_name": booking.get("attendees", [{}])[0].get("name", "")
+                    })
+            
+            print(f"Found {len(matching_bookings)} bookings for phone {phone}")
+            return {
+                "success": True,
+                "bookings": matching_bookings
+            }
+            
+    except Exception as e:
+        print(f"Error finding booking: {e}")
+        return {"success": False, "error": str(e), "bookings": []}

@@ -130,6 +130,10 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
             conversation.name_confirmed = True
             conversation.awaiting_name_confirmation = False
             
+            # NEW: After name is confirmed, move to discovery stage
+            if not conversation.discovery_complete:
+                conversation.stage = 'discovery'
+            
             # Continue normal conversation - let AI respond naturally
     
     # FR-13: Handle letter-by-letter spelling
@@ -146,6 +150,10 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
             conversation.name_confirmed = True
             conversation.awaiting_spelling_correction = False
             
+            # NEW: After name is confirmed via manual spelling, move to discovery
+            if not conversation.discovery_complete:
+                conversation.stage = 'discovery'
+            
             # Confirm we got it
             if conversation.language == 'es':
                 confirmation = f"Perfecto, {conversation.call_data.name}. Gracias."
@@ -153,6 +161,12 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
                 confirmation = f"Got it, {conversation.call_data.name}. Thank you."
             
             return confirmation, {"name": conversation.call_data.name}
+    
+    # FR-08.5: Check for cancellation request
+    if is_cancellation_request(user_message) and not conversation.is_cancelling:
+        conversation.is_cancelling = True
+        conversation.stage = 'cancellation'
+        print(f"Cancellation detected for CallSid: {call_sid}")
     
     # FR-08: Extract discovery answers from user input
     if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
@@ -164,12 +178,12 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
         # Check if we have enough discovery data to move forward
         if has_sufficient_discovery_data(conversation.call_data.discovery_answers):
             conversation.discovery_complete = True
-            # You can transition to booking stage here if you use stages
-            # conversation.stage = 'booking'
+            # Transition back to normal conversation flow for booking
+            conversation.stage = 'booking'
 
     # Select the appropriate system prompt
-    # Use discovery prompt during discovery stage, otherwise use default
-    if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
+    # Use discovery prompt during discovery stage, normal prompt for booking or greeting
+    if hasattr(conversation, 'stage') and conversation.stage == 'discovery' and not conversation.discovery_complete:
         system_prompt = DISCOVERY_SYSTEM_PROMPT
     else:
         system_prompt = NOVA_SYSTEM_PROMPT_ES if conversation.language == 'es' else NOVA_SYSTEM_PROMPT_EN

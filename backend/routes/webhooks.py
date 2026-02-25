@@ -9,8 +9,9 @@ import traceback
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from faq_data import FAQ_DATA, DEFAULT_RESPONSES
-from services.conversation import generate_response, get_conversation, end_conversation, detect_language, generate_call_summary
-from services.calendar import get_available_slots, book_appointment, format_slots_for_speech
+from services.conversation import generate_response, get_conversation, end_conversation, detect_language
+from services.calendar import get_available_slots, book_appointment, format_slots_for_speech, find_booking_by_phone
+from services.calendar_cancellation import cancel_appointment
 from services.sms import send_confirmation_sms
 from services.crm import create_lead, push_to_crm_backend
 
@@ -138,12 +139,20 @@ async def process_speech(
             # Log successful FAQ match
             print(f"FAQ match logged: {faq_key}")
             
-            # Special handling for human escalation
+            # Special handling for human escalation - transfer immediately
             if faq_key == "escalate_to_human":
                 conversation.call_data.status = "needs_callback"
-                print("Human escalation requested - marking for callback")
+                print("Human escalation requested - transferring to human")
+                
+                response = VoiceResponse()
+                response.say(faq_answer, voice=voice)
+                
+                # Transfer to human immediately
+                response.dial("+18145550100")
+                
+                return Response(content=str(response), media_type="application/xml")
             
-            # Get follow-up question
+            # Get follow-up question for non-escalation FAQs
             followup = DEFAULT_RESPONSES["followup_spanish"] if detected_lang == 'es' else DEFAULT_RESPONSES["followup_english"]
             
             # Combine FAQ answer with follow-up
@@ -162,7 +171,7 @@ async def process_speech(
             
             fallback = "¿Sigues ahí?" if detected_lang == 'es' else "Hello? You still there?"
             response.say(fallback, voice=voice)
-            response.redirect('/webhooks/voice/process')
+            # Removed redirect to prevent looping - call will end if no response
             
             return Response(content=str(response), media_type="application/xml")
         else:
@@ -197,6 +206,68 @@ async def process_speech(
         lang_code = 'es-MX' if conversation.language == 'es' else 'en-US'
         voice = 'Google.es-US-Neural2-A' if conversation.language == 'es' else 'Google.en-US-Neural2-F'
         fallback_message = "¿Sigues ahí?" if conversation.language == 'es' else "Hello? You still there?"
+
+        # Check if this is a cancellation request
+        if hasattr(conversation, 'is_cancelling') and conversation.is_cancelling:
+            # User wants to cancel - collect name and phone if we don't have them
+            if conversation.call_data.name and conversation.call_data.phone:
+                # We have the info - look up their booking
+                print(f"Looking up bookings for {conversation.call_data.phone}")
+                booking_lookup = await find_booking_by_phone(conversation.call_data.phone)
+                
+                if booking_lookup["success"] and booking_lookup["bookings"]:
+                    # Found booking(s) - cancel the first upcoming one
+                    booking = booking_lookup["bookings"][0]
+                    booking_uid = booking.get("uid")
+                    
+                    print(f"Cancelling booking {booking_uid}")
+                    cancel_result = await cancel_appointment(booking_uid, reason="Cancelled via voice agent")
+                    
+                    response = VoiceResponse()
+                    if cancel_result["success"]:
+                        if conversation.language == 'es':
+                            response.say(
+                                f"Perfecto, {conversation.call_data.name}. He cancelado tu cita. ¿Hay algo más en lo que pueda ayudarte?",
+                                voice=voice
+                            )
+                        else:
+                            response.say(
+                                f"All set, {conversation.call_data.name}. I've cancelled your appointment. Is there anything else I can help you with?",
+                                voice=voice
+                            )
+                    else:
+                        if conversation.language == 'es':
+                            response.say(
+                                "Lo siento, no pude cancelar la cita. Déjame que alguien del equipo te ayude.",
+                                voice=voice
+                            )
+                        else:
+                            response.say(
+                                "I'm sorry, I wasn't able to cancel that appointment. Let me have someone from the team help you out.",
+                                voice=voice
+                            )
+                    
+                    # Mark cancellation as complete
+                    conversation.is_cancelling = False
+                    conversation.call_data.status = "cancelled"
+                    
+                    return Response(content=str(response), media_type="application/xml")
+                else:
+                    # No booking found
+                    response = VoiceResponse()
+                    if conversation.language == 'es':
+                        response.say(
+                            f"Hmm, no encuentro ninguna cita para {conversation.call_data.phone}. ¿Quieres que alguien del equipo te ayude?",
+                            voice=voice
+                        )
+                    else:
+                        response.say(
+                            f"Hmm, I don't see any upcoming appointments for {conversation.call_data.phone}. Would you like me to have someone from the team help you out?",
+                            voice=voice
+                        )
+                    
+                    conversation.call_data.status = "needs_callback"
+                    return Response(content=str(response), media_type="application/xml")
 
         # Check if ready to book
         if (conversation.call_data.name and
@@ -234,7 +305,7 @@ async def process_speech(
         response.append(gather)
 
         response.say(fallback_message, voice=voice)
-        response.redirect('/webhooks/voice/process')
+        # Removed redirect to prevent looping - call will end if no response
 
         return Response(content=str(response), media_type="application/xml")
 
@@ -317,7 +388,7 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
                         voice=voice
                     )
 
-                end_conversation(CallSid)
+                # Don't end conversation here - let status callback handle it so transcript is saved
                 return Response(content=str(response), media_type="application/xml")
             else:
                 print(f"Booking failed: {booking_result.get('error')}")
@@ -368,6 +439,9 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
             # Generate call summary
             try:
                 from services.transcript import generate_call_summary, save_summary_to_file
+                
+                print(f"DEBUG: Conversation has {len(conversation.messages)} messages")
+                print(f"DEBUG: Call data: name={conversation.call_data.name}, phone={conversation.call_data.phone}")
                 
                 summary = await generate_call_summary(
                     messages=conversation.messages,
