@@ -37,5 +37,7 @@ class ConversationState(BaseModel):
     awaiting_name_confirmation: bool = False
     awaiting_spelling_correction: bool = False
     spelling_attempts: int = 0  # Track how many times they said it's wrong
-# Escalation tracking
+    # Escalation tracking
     failed_extraction_count: int = 0
+    # Cancellation tracking
+    is_cancelling: bool = False
