@@ -41,3 +41,6 @@ class ConversationState(BaseModel):
     failed_extraction_count: int = 0
     # Cancellation tracking
     is_cancelling: bool = False
+    # Two-factor authentication tracking
+    awaiting_verification_code: bool = False
+    verification_code_sent: bool = False

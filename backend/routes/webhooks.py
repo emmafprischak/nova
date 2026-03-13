@@ -12,6 +12,7 @@ from faq_data import FAQ_DATA, DEFAULT_RESPONSES
 from services.conversation import generate_response, get_conversation, end_conversation, detect_language
 from services.calendar import get_available_slots, book_appointment, format_slots_for_speech, find_booking_by_phone
 from services.calendar_cancellation import cancel_appointment
+from services.two_factor_auth import create_verification, verify_code
 from services.sms import send_confirmation_sms
 from services.crm import create_lead, push_to_crm_backend
 
@@ -208,6 +209,7 @@ async def process_speech(
         fallback_message = "¿Sigues ahí?" if conversation.language == 'es' else "Hello? You still there?"
 
         # Check if this is a cancellation request
+        print(f"DEBUG: Checking cancellation - is_cancelling={getattr(conversation, 'is_cancelling', 'N/A')}, has name={conversation.call_data.name}, has phone={conversation.call_data.phone}")
         if hasattr(conversation, 'is_cancelling') and conversation.is_cancelling:
             # User wants to cancel - collect name and phone if we don't have them
             if conversation.call_data.name and conversation.call_data.phone:
@@ -479,10 +481,8 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 except Exception as e:
                     print(f"Failed to push to CRM backend on completion: {e}")
                     
-            except Exception as e:
-                print(f"❌ Error in call completion: {e}")
-            finally:
-                end_conversation(CallSid)
+
+            end_conversation(CallSid)
 
         return {"status": "received"}
     except Exception as e:
