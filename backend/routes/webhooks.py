@@ -14,7 +14,7 @@ from services.calendar import get_available_slots, book_appointment, format_slot
 from services.calendar_cancellation import cancel_appointment
 from services.two_factor_auth import create_verification, verify_code
 from services.sms import send_confirmation_sms
-from services.crm import create_lead, push_to_crm_backend
+from services.crm import create_lead, push_to_crm_backend, push_call_log_to_backend
 from services.transcript import generate_call_summary, save_summary_to_file
 
 router = APIRouter()
@@ -478,6 +478,7 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
             conversation = get_conversation(CallSid)
             
             # Generate call summary
+            summary = None
             try:
                 print(f"DEBUG: Conversation has {len(conversation.messages)} messages")
                 print(f"DEBUG: Call data: name={conversation.call_data.name}, phone={conversation.call_data.phone}")
@@ -499,6 +500,23 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 print(f"✅ Saved call summary: {filepath}")
             except Exception as e:
                 print(f"❌ Error generating summary: {e}")
+
+            # Push comprehensive call log to /public/call-logs/ for all completed calls
+            try:
+                summary_text = summary.get("summary", "") if isinstance(summary, dict) else ""
+                transcript_text = summary.get("transcript", "") if isinstance(summary, dict) else ""
+                await push_call_log_to_backend(
+                    call_sid=CallSid,
+                    call_data=conversation.call_data,
+                    summary=summary_text,
+                    transcript=transcript_text,
+                    escalation_status="escalated" if conversation.call_data.status == "needs_human" else "none",
+                    language=conversation.language,
+                    discovery_answers=conversation.call_data.discovery_answers,
+                )
+                print("✅ Call log pushed to /public/call-logs/")
+            except Exception as e:
+                print(f"⚠️ Call log push failed (non-fatal): {e}")
 
             if conversation.call_data.status == "new":
                 conversation.call_data.status = "no_booking"
