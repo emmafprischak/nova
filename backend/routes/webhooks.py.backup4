@@ -1,12 +1,7 @@
 """
 Webhook Routes - Twilio calls these endpoints
 """
-from fastapi import APIRouter, Form, Response, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-# Rate limiter
-limiter = Limiter(key_func=get_remote_address)
+from fastapi import APIRouter, Form, Response
 from twilio.twiml.voice_response import VoiceResponse, Gather
 import sys
 import os
@@ -82,8 +77,7 @@ def log_faq_miss(user_message: str, call_sid: str, language: str):
         print(f"Failed to log FAQ miss: {e}")
 
 @router.post("/voice/incoming")
-@limiter.limit("10/minute")
-async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
+async def handle_incoming_call(CallSid: str = Form(...)):
     """Called when someone calls your Twilio number"""
     print(f"Incoming call: {CallSid}")
 
@@ -117,9 +111,7 @@ async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
         return Response(content=str(response), media_type="application/xml")
 
 @router.post("/voice/process")
-@limiter.limit("30/minute")
 async def process_speech(
-    request: Request,
     CallSid: str = Form(...),
     SpeechResult: str = Form(None),
     From: str = Form(...)
@@ -144,21 +136,7 @@ async def process_speech(
         print(f"Detected language: {detected_lang}")
 
         # ========== FAQ DETECTION ==========
-        # Get conversation state to check if we are in a special mode
-        conversation = get_conversation(CallSid)
-        
-        # Skip FAQ detection if in discovery or cancellation mode
-        skip_faq = (
-            (hasattr(conversation, "stage") and conversation.stage in ["discovery", "cancellation"]) or
-            (hasattr(conversation, "is_cancelling") and conversation.is_cancelling) or
-            (hasattr(conversation, "discovery_complete") and not conversation.discovery_complete)
-        )
-        
-        if not skip_faq:
-            faq_key = detect_faq_intent(SpeechResult)
-        else:
-            faq_key = None
-            print(f"Skipping FAQ detection - in {getattr(conversation, 'stage', 'unknown')} mode")
+        faq_key = detect_faq_intent(SpeechResult)
         
         if faq_key:
             print(f"FAQ detected: {faq_key}")
@@ -181,10 +159,6 @@ async def process_speech(
                 response.say(sanitize_for_tts(faq_answer), voice=voice)
                 
                 # Transfer to human immediately
-                
-                # Add a brief goodbye message before transfer
-                goodbye_msg = "Un momento, por favor..." if detected_lang == "es" else "Hold on just a sec, transferring you now..."
-                response.say(sanitize_for_tts(goodbye_msg), voice=voice)
                 response.dial("+18145550100")
                 
                 return Response(content=str(response), media_type="application/xml")
@@ -227,12 +201,7 @@ async def process_speech(
             voice = 'Google.es-US-Neural2-A' if conversation.language == 'es' else 'Google.en-US-Neural2-F'
             
             response = VoiceResponse()
-            # Say the escalation message from AI
             response.say(sanitize_for_tts(ai_response), voice=voice)
-            
-            # Add a brief goodbye message before transfer
-            goodbye_msg = "Un momento, por favor..." if conversation.language == 'es' else "Hold on just a sec, transferring you now..."
-            response.say(sanitize_for_tts(goodbye_msg), voice=voice)
             
             # Transfer to human (update phone number)
             response.dial("+18145550100")  # Your team's phone number
@@ -420,29 +389,10 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
                 except Exception as notion_error:
                     print(f"Notion error (non-fatal): {notion_error}")
 
-                # Generate call summary before pushing to CRM
-                summary = None
-                try:
-                    summary_data = await generate_call_summary(
-                        messages=conversation.messages,
-                        call_data={
-                            "name": conversation.call_data.name,
-                            "phone": conversation.call_data.phone,
-                            "email": conversation.call_data.email,
-                            "service": conversation.call_data.service,
-                            "appointment_time": conversation.call_data.appointment_time,
-                            "status": conversation.call_data.status,
-                            "discovery_answers": conversation.call_data.discovery_answers,
-                        }
-                    )
-                    summary = summary_data.get("summary") if summary_data else None
-                except Exception as summary_error:
-                    print(f"Summary generation error (non-fatal): {summary_error}")
-
                 # Push to CRM backend
                 print("Pushing to CRM backend...")
                 try:
-                    await push_to_crm_backend(conversation.call_data, CallSid, summary=summary, escalation_status="none")
+                    await push_to_crm_backend(conversation.call_data, CallSid, escalation_status="none")
                 except Exception as crm_error:
                     print(f"CRM backend error (non-fatal): {crm_error}")
 
@@ -484,28 +434,9 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
         except Exception as e:
             print(f"Failed to save lead: {e}")
         
-        # Generate call summary before pushing to CRM
-        summary = None
-        try:
-            summary_data = await generate_call_summary(
-                messages=conversation.messages,
-                call_data={
-                    "name": conversation.call_data.name,
-                    "phone": conversation.call_data.phone,
-                    "email": conversation.call_data.email,
-                    "service": conversation.call_data.service,
-                    "appointment_time": conversation.call_data.appointment_time,
-                    "status": conversation.call_data.status,
-                    "discovery_answers": conversation.call_data.discovery_answers,
-                }
-            )
-            summary = summary_data.get("summary") if summary_data else None
-        except Exception as summary_error:
-            print(f"Summary generation error (non-fatal): {summary_error}")
-
         # Push to CRM backend
         try:
-            await push_to_crm_backend(conversation.call_data, CallSid, summary=summary, escalation_status="pending")
+            await push_to_crm_backend(conversation.call_data, CallSid, escalation_status="pending")
         except Exception as e:
             print(f"Failed to push to CRM backend: {e}")
 
@@ -528,8 +459,9 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
             conversation = get_conversation(CallSid)
             
             # Generate call summary
-            summary = None
             try:
+                from services.transcript import generate_call_summary, save_summary_to_file
+                
                 print(f"DEBUG: Conversation has {len(conversation.messages)} messages")
                 print(f"DEBUG: Call data: name={conversation.call_data.name}, phone={conversation.call_data.phone}")
                 
@@ -550,23 +482,6 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 print(f"✅ Saved call summary: {filepath}")
             except Exception as e:
                 print(f"❌ Error generating summary: {e}")
-
-            # Push comprehensive call log to /public/call-logs/ for all completed calls
-            try:
-                summary_text = summary.get("summary", "") if isinstance(summary, dict) else ""
-                transcript_text = summary.get("transcript", "") if isinstance(summary, dict) else ""
-                await push_call_log_to_backend(
-                    call_sid=CallSid,
-                    call_data=conversation.call_data,
-                    summary=summary_text,
-                    transcript=transcript_text,
-                    escalation_status="escalated" if conversation.call_data.status == "needs_human" else "none",
-                    language=conversation.language,
-                    discovery_answers=conversation.call_data.discovery_answers,
-                )
-                print("✅ Call log pushed to /public/call-logs/")
-            except Exception as e:
-                print(f"⚠️ Call log push failed (non-fatal): {e}")
 
             if conversation.call_data.status == "new":
                 conversation.call_data.status = "no_booking"

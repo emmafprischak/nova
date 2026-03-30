@@ -4,6 +4,9 @@ Run this file to start the server: python main.py
 """
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes import webhooks, health
 from backend.config import HOST, PORT
@@ -22,6 +25,9 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("Nova shutting down...")
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 # Create FastAPI app
 app = FastAPI(
     title="Nova Voice Agent",
@@ -29,13 +35,19 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add CORS middleware
+# Restrict to Twilio and trusted origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://api.twilio.com",
+        "https://*.twilio.com",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 

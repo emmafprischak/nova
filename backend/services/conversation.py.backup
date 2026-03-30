@@ -182,15 +182,10 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
             conversation.stage = 'booking'
 
     # Select the appropriate system prompt
-    # Priority: cancellation > discovery > normal
-    if hasattr(conversation, 'is_cancelling') and conversation.is_cancelling:
-        # User wants to cancel - use cancellation prompt
-        system_prompt = NOVA_CANCELLATION_PROMPT_ES if conversation.language == 'es' else NOVA_CANCELLATION_PROMPT_EN
-    elif hasattr(conversation, 'stage') and conversation.stage == 'discovery' and not conversation.discovery_complete:
-        # Discovery stage
+    # Use discovery prompt during discovery stage, normal prompt for booking or greeting
+    if hasattr(conversation, 'stage') and conversation.stage == 'discovery' and not conversation.discovery_complete:
         system_prompt = DISCOVERY_SYSTEM_PROMPT
     else:
-        # Normal conversation
         system_prompt = NOVA_SYSTEM_PROMPT_ES if conversation.language == 'es' else NOVA_SYSTEM_PROMPT_EN
     
     # Build messages for OpenAI

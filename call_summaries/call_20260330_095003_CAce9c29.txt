@@ -1,0 +1,65 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CAce9c2956959b42d1e70b3100f30d57af
+DATE: 2026-03-30 09:50:03
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    Oliver
+│ Phone:   None
+│ Email:   None
+│ Service: consultation
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller requested to schedule a consultation appointment.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, Oliver expressed his desire to schedule a consultation for the following day. He requested an estimate prior to the appointment and confirmed that he is the main decision-maker for this consultation.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ An appointment was not yet booked, but Oliver is ready to proceed once the estimate is provided.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should prepare and send an estimate to Oliver promptly and follow up to finalize the appointment for the consultation.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: Hello. I would like to schedule an appointment.
+NOVA: Of course, happy to help with that! Mind telling me your name?
+CALLER: Hi, my name is Oliver.
+NOVA: Hey there, Oliver! So, what're we scheduling today? 
+
+{"name": "Oliver", "phone": null, "email": null, "service": null, "ready_to_book": true}
+CALLER: I would like to schedule a consultation.
+NOVA: Perfect, Oliver. A consultation it is! Now, when are you looking to get started with this?
+{"name": "Oliver", "phone": null, "email": null, "service": "consultation", "ready_to_book": true}
+CALLER: I'm could I tomorrow would be good.
+NOVA: Alright, tomorrow works. As far as the consultation goes, do you have a budget in mind, or would you like an estimate first?
+
+{"name": "Oliver", "phone": null, "email": null, "service": "consultation", "timeline": "tomorrow", "ready_to_book": true}
+CALLER: Could I get an estimate?
+NOVA: Certainly, Oliver. I'll arrange for an estimate to be provided to you promptly. Just one more thing before we proceed - are you the main decision-maker, or will others be involved? 
+
+{"name": "Oliver", "phone": null, "email": null, "service": "consultation", "timeline": "tomorrow", "budget_preference": "estimate first", "ready
+CALLER: I'm
+NOVA: I'm sorry, Oliver. I didn't quite catch that. Are you the main decision-maker? 
+
+{"name": "Oliver", "phone": null, "email": null, "service": "consultation", "timeline": "tomorrow", "budget_preference": "estimate first", "ready_to_book": true}
+CALLER: Yes, yes.
+NOVA: Great, Oliver! I've got all the information needed to help you book your appointment. Let's get things moving for you. 
+
+{"name": "Oliver", "phone": null, "email": null, "service": "consultation", "timeline": "tomorrow", "budget_preference": "estimate first", "decision_maker": "yes", "ready_to_book": true}
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════

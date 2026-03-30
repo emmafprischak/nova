@@ -1,0 +1,61 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CA7c3288c919becd26b92b64562072fd2a
+DATE: 2026-03-28 12:15:56
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    Emma
+│ Phone:   None
+│ Email:   None
+│ Service: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller requested to book an appointment.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the representative, Nova, introduced herself and asked for the caller's name, which was provided as Emma. Nova attempted to gather more information regarding Emma's needs, including the timeline for starting the project and budget considerations, but faced challenges in obtaining clear responses.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ An appointment was not booked during the call due to insufficient information. Emma may require a follow-up call to clarify her needs.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should reach out to Emma for a follow-up call to gather the necessary details regarding her project timeline and budget to facilitate the appointment booking.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: You get.
+NOVA: Hey there! You kinda cut off. What can I help you with today?
+CALLER: Um, I wanted to book an appointment.
+NOVA: Of course! I'd be happy to help with that. Can I grab your name first, please?
+CALLER: Emma.
+NOVA: Nice to meet you, Emma! So, what would you like help with during your appointment?
+{"name": "Emma", "phone": null, "email": null, "service": null, "ready_to_book": true}
+CALLER: Sure.
+NOVA: Great, Emma. Before we book your appointment, I'd like to ask a few quick questions to understand your needs better, if that's okay.
+
+Firstly, when are you looking to get started? Is this something urgent or are you just exploring at this point?
+CALLER: Yep.
+NOVA: I'm sorry, Emma, but I didn't quite catch your response about the timeline. Could you please let me know when you are hoping to get started? 
+
+Also, do you already have a budget in mind for this project or would you prefer to receive an estimate first?
+{"name": "Emma", "phone": null, "email": null, "service": null, "ready_to
+CALLER: Yes.
+NOVA: I apologize for any confusion, Emma. To make sure we're on the same page, could you please provide me with a bit more detail? When do you plan to start this project, and do you have a budget set or are you looking for an estimate?
+
+Also, would it be correct to say that you're the main decision-maker on this, or will others be involved?
+{"name":
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════

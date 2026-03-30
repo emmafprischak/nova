@@ -1,0 +1,41 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CAa0f02f2492d75888abb26115ae23603e
+DATE: 2026-02-25 11:53:25
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    None
+│ Phone:   None
+│ Email:   None
+│ Service: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller requested to cancel their appointment.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the representative confirmed the caller's identity and gathered necessary details regarding the appointment to be canceled. The caller expressed their desire to cancel without providing a specific reason.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ The appointment was successfully canceled, and no callback is needed.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should update the appointment records to reflect the cancellation and ensure the caller receives a confirmation email.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: I would like to cancel my appointment.
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════
