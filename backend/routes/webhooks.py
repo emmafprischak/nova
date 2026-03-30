@@ -15,6 +15,7 @@ from services.calendar_cancellation import cancel_appointment
 from services.two_factor_auth import create_verification, verify_code
 from services.sms import send_confirmation_sms
 from services.crm import create_lead, push_to_crm_backend, push_call_log_to_backend
+from services.crm_call_logs import push_call_log_to_crm
 from services.transcript import generate_call_summary, save_summary_to_file
 
 router = APIRouter()
@@ -469,7 +470,11 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
         return Response(content=str(response), media_type="application/xml")
 
 @router.post("/voice/status")
-async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
+async def call_status(
+    CallSid: str = Form(...),
+    CallStatus: str = Form(...),
+    CallDuration: str = Form(None),
+):
     """Receives call status updates"""
     print(f"Call {CallSid} status: {CallStatus}")
 
@@ -501,18 +506,37 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
             except Exception as e:
                 print(f"❌ Error generating summary: {e}")
 
-            # Push comprehensive call log to /public/call-logs/ for all completed calls
+            # Push call log to CRM /public/call-logs/ using the CallLogCreate schema
             try:
                 summary_text = summary.get("summary", "") if isinstance(summary, dict) else ""
                 transcript_text = summary.get("transcript", "") if isinstance(summary, dict) else ""
-                await push_call_log_to_backend(
-                    call_sid=CallSid,
+                problem_statement_text = summary.get("problem_statement", "") if isinstance(summary, dict) else ""
+                next_steps_text = summary.get("next_steps", "") if isinstance(summary, dict) else ""
+
+                # Map internal status to CallLogCreate outcome values
+                if conversation.call_data.appointment_time or conversation.call_data.status == "booked":
+                    outcome = "booked"
+                elif conversation.call_data.status in ("needs_callback", "needs_human"):
+                    outcome = "callback"
+                else:
+                    outcome = "no_action"
+
+                escalation = "escalated" if conversation.call_data.status == "needs_human" else "none"
+                try:
+                    duration = int(CallDuration) if CallDuration else None
+                except ValueError:
+                    print(f"⚠️ Could not parse CallDuration '{CallDuration}', defaulting to None")
+                    duration = None
+
+                await push_call_log_to_crm(
                     call_data=conversation.call_data,
+                    full_transcript=transcript_text,
                     summary=summary_text,
-                    transcript=transcript_text,
-                    escalation_status="escalated" if conversation.call_data.status == "needs_human" else "none",
-                    language=conversation.language,
-                    discovery_answers=conversation.call_data.discovery_answers,
+                    problem_statement=problem_statement_text,
+                    outcome=outcome,
+                    next_steps=next_steps_text,
+                    escalation_status=escalation,
+                    call_duration=duration,
                 )
                 print("✅ Call log pushed to /public/call-logs/")
             except Exception as e:

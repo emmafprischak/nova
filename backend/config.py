@@ -28,6 +28,7 @@ NOTION_API_URL = "https://api.notion.com/v1"
 # CRM Backend Configuration
 CRM_BACKEND_URL = os.getenv("CRM_BACKEND_URL", "https://crm-backend-8b97.onrender.com")
 CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE", "walmart")
+CRM_CALL_LOGS_ENDPOINT = f"{CRM_BACKEND_URL}/public/call-logs/"
 
 # Server Configuration
 HOST = os.getenv("HOST", "0.0.0.0")
