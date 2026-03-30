@@ -1,0 +1,54 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CAb978e84e1b09378e7fdf08a2c9262b13
+DATE: 2026-02-25 12:06:15
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    Page
+│ Phone:   1234567891
+│ Email:   None
+│ Service: general consultation
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller requested to schedule a general consultation appointment.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the representative, Nova, collected the caller's name, Page, and confirmed the service needed as a general consultation. The caller provided their phone number for appointment scheduling.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ An appointment was not yet booked, but the caller is ready to proceed with scheduling.
+│ Appointment: 2026-02-25T19:30:00.000Z
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should finalize the appointment details for Page's general consultation and confirm the date and time with the caller.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: I'd like to schedule an appointment.
+NOVA: Fantastic, I'd love to help with that! Can I get your name first?
+CALLER: Page.
+NOVA: Nice to meet you, Page! What can we help you with in your appointment? 
+
+{"name": "Page", "phone": null, "email": null, "service": null, "ready_to_book": true}
+CALLER: I'm just general consultation, I think.
+NOVA: Sure thing, Page. A general consultation is a great starting point. Can I have your phone number?
+
+{"name": "Page", "phone": null, "email": null, "service": "general consultation", "ready_to_book": true}
+CALLER: One, two, three, four, five, six, seven, eight, nine, one.
+NOVA: Got it, thanks Page! I'll arrange a general consultation for you.
+
+{"name": "Page", "phone": "1234567891", "email": null, "service": "general consultation", "ready_to_book": true}
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════
