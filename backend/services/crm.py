@@ -163,3 +163,92 @@ async def push_to_crm_backend(
         import traceback
         traceback.print_exc()
         return {"success": False, "error": error_msg}
+
+async def push_call_log_to_backend(
+    call_sid: str,
+    call_data: CallData,
+    summary: str | None = None,
+    transcript: str | None = None,
+    duration_seconds: int | None = None,
+    escalation_status: str | None = None,
+    language: str = "en",
+    discovery_answers: dict | None = None,
+    timestamp: str | None = None,
+) -> dict:
+    """
+    Push detailed call log to the CRM backend's /public/call-logs/ endpoint.
+
+    POST {base_url}/public/call-logs/
+    Body: {"call_id", "tenant_code", "timestamp", "caller_info", "call_metadata",
+           "call_outcome", "escalation", "summary", "transcript", "discovery_answers"}
+
+    Complements push_to_crm_backend() which focuses on lead submission.
+    """
+    if not CRM_BACKEND_URL:
+        print("CRM backend URL not configured, skipping call log push")
+        return {"success": False, "error": "CRM backend URL not configured"}
+    try:
+        url = f"{CRM_BACKEND_URL.rstrip('/')}/public/call-logs/"
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "call_id": call_sid,
+            "tenant_code": CRM_TENANT_CODE,
+            "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "caller_info": {
+                "name": call_data.name or "Unknown",
+                "phone": call_data.phone or "(555)555-5555",
+                "email": call_data.email or "novaisnotworking@orbyn.ai",
+            },
+            "call_metadata": {
+                "language": language,
+                "duration_seconds": duration_seconds,
+                "service_requested": call_data.service,
+            },
+            "call_outcome": {
+                "status": call_data.status,
+                "appointment_booked": bool(call_data.appointment_time),
+                "appointment_time": call_data.appointment_time,
+                "booking_uid": call_data.booking_uid,
+            },
+            "escalation": {
+                "escalation_status": escalation_status or "none",
+                "escalated_to_human": escalation_status == "escalated",
+                "reason": None,
+            },
+            "summary": summary or "",
+            "transcript": transcript or "",
+            "discovery_answers": discovery_answers if discovery_answers is not None else call_data.discovery_answers,
+        }
+
+        print(f"Pushing call log to: {url}")
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+
+            print("Call log pushed successfully")
+            result = response.json() if response.text else {}
+            return {
+                "success": True,
+                "response": result
+            }
+
+    except httpx.TimeoutException as e:
+        error_msg = f"Call log push timeout: {str(e)}"
+        print(error_msg)
+        return {"success": False, "error": error_msg}
+    except httpx.HTTPStatusError as e:
+        error_detail = e.response.text
+        print(f"Call log push HTTP error: {e}")
+        print(f"Response body: {error_detail}")
+        return {"success": False, "error": error_detail}
+    except Exception as e:
+        error_msg = f"Call log push error: {str(e)}"
+        print(error_msg)
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": error_msg}
