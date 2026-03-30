@@ -1,0 +1,60 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CAe24c4e7b49d75651af9a00dbb29a67b2
+DATE: 2026-03-30 13:54:05
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    Emma Johnson
+│ Phone:   None
+│ Email:   None
+│ Service: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller requested to book an appointment for a project consultation.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the representative collected the caller's name, Emma Johnson, and confirmed her preference for an estimate before scheduling the appointment. Emma indicated that she would like to start the project as soon as possible.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ An appointment was not booked during the call, as the caller preferred to receive an estimate first.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should prepare the project estimate for Emma Johnson and follow up with her to finalize the appointment.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: I want to book an appointment.
+NOVA: Absolutely, I'd love to help with that. Can I get your name?
+CALLER: Emma Johnson.
+NOVA: Nice to meet you, Emma! What's the best phone number for you? 
+
+{"name": "Emma Johnson", "ready_to_book": true}
+CALLER: Yep.
+NOVA: Perfect! Before we schedule your appointment, let's make sure I understand what you need. When are you looking to get started with this project?
+CALLER: As soon as possible.
+NOVA: That sounds great, Emma. We can certainly expedite things for you. Next, do you have a budget in mind for this project or would you prefer us to provide an estimate first?
+
+{"timeline": "ASAP"}
+CALLER: I would prefer an estimate.
+NOVA: No problem at all, Emma. We can definitely provide an estimate. Now, let's get that consultation booked for you.
+
+{"budget_preference": "estimate_first"}
+CALLER: Okay.
+NOVA: Great, Emma! I'll get that sorted for you right now.
+
+{"ready_to_book": true}
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════

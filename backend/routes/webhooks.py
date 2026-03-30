@@ -17,6 +17,8 @@ from services.sms import send_confirmation_sms
 from services.crm import create_lead, push_to_crm_backend
 from backend.services.transcript_integration import send_summary_to_crm
 
+router = APIRouter()
+
 # Then in call_status, replace the previous CRM send with:
 
 @router.post("/voice/status")
@@ -79,8 +81,10 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                     )
                 except Exception as e:
                     print(f"Failed to push to CRM backend on completion: {e}")
+    except Exception as e:
+        print(f"Error in call status handler: {e}")
 
-router = APIRouter()
+
 
 # ========== FAQ HELPER FUNCTIONS ==========
 

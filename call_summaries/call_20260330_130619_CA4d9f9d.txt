@@ -1,0 +1,47 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CA4d9f9deed1dad03df0ee9128bb95061a
+DATE: 2026-03-30 13:06:19
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    None
+│ Phone:   None
+│ Email:   None
+│ Service: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller needed assistance but was unable to communicate effectively due to a connection issue.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the representative, Nova, attempted to engage the caller, who struggled to articulate their needs. The call was marked by interruptions and unclear communication, leading to no personal information or service requests being collected.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ No appointment was booked, and the caller did not provide sufficient information for a callback.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should follow up by checking the call logs for any additional context and consider reaching out to the caller via alternative communication methods to resolve their issue.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: Stuff that you.
+NOVA: Hey there! Sounds like you cut off mid-sentence. What's up?
+{"name": null, "phone": null, "email": null, "service": null, "ready_to_book": false}
+CALLER: that's,
+NOVA: Oops, seems like we're having a bit of a connection issue. Could you try that again?
+
+{"name": null, "phone": null, "email": null, "service": null, "ready_to_book": false}
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════

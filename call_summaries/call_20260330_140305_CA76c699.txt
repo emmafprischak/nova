@@ -1,0 +1,54 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CA76c6998f2870af108b6749320ecb70c1
+DATE: 2026-03-30 14:03:05
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    Oliver
+│ Phone:   8145042463
+│ Email:   None
+│ Service: Urban AI
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller requested to book a consultation for Urban AI services for his business.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the representative, Nova, collected the caller's name, Oliver, and his phone number, 8145042463. Oliver expressed interest in utilizing Urban AI to enhance his business operations.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ An appointment was not yet finalized during the call, but the caller is ready to book.
+│ Appointment: 2026-03-30T20:30:00.000Z
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should proceed to schedule the consultation for Oliver and confirm the appointment details with him.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: Hi. I would like to book a consultation.
+NOVA: Amazing! I'd love to help you with that. Could I grab your name, please?
+CALLER: Yes, it's Oliver.
+NOVA: Great to meet you, Oliver! Now, what can I assist you with in the consultation? 
+
+{"name": "Oliver", "phone": null, "email": null, "service": null, "ready_to_book": true}
+CALLER: I would like to help get Urban AI for my business.
+NOVA: That sounds like a fantastic idea, Oliver! Urban AI can really boost your business. Can I get your phone number to finalize the booking?
+
+{"name": "Oliver", "phone": null, "email": null, "service": "Urban AI", "ready_to_book": true}
+CALLER: Yes, it's 8145042463.
+NOVA: Cool, thanks, Oliver! I've got your number now. Let's get that consultation set up.
+
+{"name": "Oliver", "phone": "8145042463", "email": null, "service": "Urban AI", "ready_to_book": true}
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════

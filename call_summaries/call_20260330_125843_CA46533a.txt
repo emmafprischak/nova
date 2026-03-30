@@ -1,0 +1,52 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CA46533a739878e927494fca9af12c5b87
+DATE: 2026-03-30 12:58:43
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    None
+│ Phone:   None
+│ Email:   None
+│ Service: consultation
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller requested to book a consultation.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the representative attempted to collect the caller's name to proceed with the consultation booking. However, the caller's responses were unclear, leading to confusion and difficulty in gathering necessary information.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ An appointment was not booked due to insufficient information from the caller.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should follow up with the caller to clarify their name and assist in scheduling the consultation.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: Here, I would like to book a consultation.
+NOVA: Awesome, I'd love to help with that! Can I grab your name first?
+CALLER: Oh yes, it's all over.
+NOVA: Got it, but I didn't quite catch your name. Could you say it again for me, please? 
+{"name": null, "phone": null, "email": null, "service": "consultation", "ready_to_book": true}
+CALLER: For me all of her.
+NOVA: I'm sorry for the confusion, but I'm still having trouble understanding your name. Could we try one more time? 
+{"name": null, "phone": null, "email": null, "service": "consultation", "ready_to_book": true}
+CALLER: Pray for the confusion.
+NOVA: No problem at all, I'm here to assist you. To proceed with booking your consultation, may I know when you are looking to get started?
+{"name": null, "phone": null, "email": null, "service": "consultation", "ready_to_book": false}
+CALLER: He was booking, your consultation.
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════

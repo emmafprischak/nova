@@ -3,6 +3,7 @@ Appointment Cancellation via Cal.com API
 """
 
 import httpx
+import json
 import logging
 from typing import Optional
 from config import CAL_API_KEY
@@ -40,7 +41,7 @@ async def cancel_appointment(booking_uid: str, reason: Optional[str] = None) -> 
         }
         
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.delete(url, headers=headers, json=payload)
+            response = await client.delete(url, headers=headers, content=json.dumps(payload))
             
             if response.status_code == 200:
                 logger.info(f"Successfully cancelled booking {booking_uid}")

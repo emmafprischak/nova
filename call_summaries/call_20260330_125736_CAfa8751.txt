@@ -1,0 +1,49 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CAfa87514815054596a19f0f64aab7f127
+DATE: 2026-03-30 12:57:36
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    None
+│ Phone:   None
+│ Email:   None
+│ Service: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller needed assistance in booking a consultation.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the caller expressed a desire to book a consultation but initially struggled to provide their name. The representative, Nova, attempted to clarify the caller's name to proceed with the booking.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ An appointment was not booked due to the lack of information provided by the caller.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should follow up with the caller to gather the necessary details for booking the consultation and ensure a smooth scheduling process.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: It's not.
+NOVA: Oh, sorry about that. Let's start fresh. How can I assist you today?
+CALLER: I would like to book a consultation.
+NOVA: Amazing! I can certainly help with that. Could I get your name, please?
+{"ready_to_book": true}
+CALLER: He yes, it's all of it.
+NOVA: I'm sorry, I seem to have misunderstood. Could you please tell me your name again?
+CALLER: I'm sorry.
+NOVA: No problem at all! Let's try again. May I know your name?
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════
