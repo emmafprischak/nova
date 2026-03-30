@@ -2,6 +2,7 @@
 CRM Service - Integrates with Notion database and CRM backend
 """
 import httpx
+import logging
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -9,6 +10,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import NOTION_TOKEN, NOTION_DATABASE_ID, NOTION_API_URL, CRM_BACKEND_URL, CRM_TENANT_CODE
 from models import CallData
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 async def create_lead(call_data: CallData, call_sid: str) -> dict:
     """Create a new lead entry in Notion"""
@@ -86,6 +89,60 @@ async def create_lead(call_data: CallData, call_sid: str) -> dict:
         traceback.print_exc()
         return {"success": False, "error": str(e)}
 
+def determine_escalation_status(call_data: CallData, summary: str | None = None) -> str:
+    """
+    Determine the escalation status for a call based on the call outcome and summary.
+
+    Escalation statuses:
+    - "none"      — successful booking or completed call with no issues
+    - "pending"   — booking failed or caller requested a callback (needs follow-up)
+    - "escalated" — call was transferred to a human agent
+    - "resolved"  — issue resolved after escalation
+
+    Args:
+        call_data: The call data object with status and other fields.
+        summary: Optional AI-generated call summary text for keyword detection.
+
+    Returns:
+        A string escalation status: "none", "pending", "escalated", or "resolved".
+    """
+    status = (call_data.status or "").lower()
+
+    # Directly escalated statuses
+    if status in ("needs_human", "escalated"):
+        return "escalated"
+
+    # Resolved after escalation
+    if status == "resolved":
+        return "resolved"
+
+    # Pending/callback statuses — needs follow-up
+    if status in ("needs_callback", "pending", "failed", "no_booking", "cancelled"):
+        return "pending"
+
+    # Successful booking — no escalation needed
+    if status in ("booked", "qualified"):
+        return "none"
+
+    # Fall back to keyword detection in the summary if status is ambiguous
+    if summary:
+        summary_lower = summary.lower()
+        pending_keywords = ("callback", "call back", "follow-up", "follow up", "no booking", "unable to book", "failed")
+        escalation_keywords = ("escalat", "transfer", "human agent", "supervisor", "needs_human")
+        resolved_keywords = ("resolved", "issue resolved")
+
+        if any(kw in summary_lower for kw in resolved_keywords):
+            return "resolved"
+        # Check pending before escalation so "callback" phrases are not mis-classified
+        if any(kw in summary_lower for kw in pending_keywords):
+            return "pending"
+        if any(kw in summary_lower for kw in escalation_keywords):
+            return "escalated"
+
+    # Default: no escalation
+    return "none"
+
+
 async def push_to_crm_backend(
     call_data: CallData,
     call_sid: str = None,
@@ -100,9 +157,12 @@ async def push_to_crm_backend(
     POST {base_url}/public/submit-contact
     Body: {"name", "email", "phone", "tenant_code", "summary",
            "escalation_status", "timestamp"}
+
+    If escalation_status is not provided, it is determined automatically from
+    call_data.status and the summary text via determine_escalation_status().
     """
     if not CRM_BACKEND_URL:
-        print("CRM backend URL not configured (CRM_BACKEND_URL missing), skipping push")
+        logger.warning("CRM backend URL not configured (CRM_BACKEND_URL missing), skipping push")
         return {"success": False, "error": "CRM backend URL not configured"}
     try:
         url = f"{CRM_BACKEND_URL.rstrip('/')}/public/submit-contact"
@@ -111,6 +171,9 @@ async def push_to_crm_backend(
             "Content-Type": "application/json"
         }
 
+        # Resolve escalation status automatically when not supplied by caller
+        effective_escalation_status = escalation_status if escalation_status is not None else determine_escalation_status(call_data, summary)
+
         # Minimal payload required by the public submit-contact endpoint
         payload = {
             "name": call_data.name or "Unknown",
@@ -118,7 +181,7 @@ async def push_to_crm_backend(
             "phone": call_data.phone or "(555)555-5555",
             "tenant_code": CRM_TENANT_CODE,
             "summary": summary or "",
-            "escalation_status": escalation_status or "none",
+            "escalation_status": effective_escalation_status,
             "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
 
@@ -135,13 +198,13 @@ async def push_to_crm_backend(
         if call_data.appointment_time:
             payload["appointment_time"] = call_data.appointment_time
 
-        print(f"Pushing to CRM backend: {url}")
+        logger.info("Pushing contact to CRM backend: %s (escalation_status=%s)", url, effective_escalation_status)
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
 
-            print("CRM backend: Contact submitted successfully")
+            logger.info("CRM backend: Contact submitted successfully (call_sid=%s)", call_sid)
             result = response.json() if response.text else {}
             return {
                 "success": True,
@@ -150,18 +213,15 @@ async def push_to_crm_backend(
 
     except httpx.TimeoutException as e:
         error_msg = f"CRM backend request timeout: {str(e)}"
-        print(error_msg)
+        logger.error(error_msg)
         return {"success": False, "error": error_msg}
     except httpx.HTTPStatusError as e:
         error_detail = e.response.text
-        print(f"CRM backend HTTP error: {e}")
-        print(f"Response body: {error_detail}")
+        logger.error("CRM backend HTTP error %s: %s", e.response.status_code, error_detail)
         return {"success": False, "error": error_detail}
     except Exception as e:
         error_msg = f"CRM backend error: {str(e)}"
-        print(error_msg)
-        import traceback
-        traceback.print_exc()
+        logger.error(error_msg, exc_info=True)
         return {"success": False, "error": error_msg}
 
 async def push_call_log_to_backend(
@@ -224,13 +284,13 @@ async def push_call_log_to_backend(
             "discovery_answers": discovery_answers if discovery_answers is not None else call_data.discovery_answers,
         }
 
-        print(f"Pushing call log to: {url}")
+        logger.info("Pushing call log to CRM backend: %s (call_sid=%s)", url, call_sid)
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
 
-            print("Call log pushed successfully")
+            logger.info("Call log pushed successfully (call_sid=%s)", call_sid)
             result = response.json() if response.text else {}
             return {
                 "success": True,
@@ -239,16 +299,13 @@ async def push_call_log_to_backend(
 
     except httpx.TimeoutException as e:
         error_msg = f"Call log push timeout: {str(e)}"
-        print(error_msg)
+        logger.error(error_msg)
         return {"success": False, "error": error_msg}
     except httpx.HTTPStatusError as e:
         error_detail = e.response.text
-        print(f"Call log push HTTP error: {e}")
-        print(f"Response body: {error_detail}")
+        logger.error("Call log push HTTP error %s: %s", e.response.status_code, error_detail)
         return {"success": False, "error": error_detail}
     except Exception as e:
         error_msg = f"Call log push error: {str(e)}"
-        print(error_msg)
-        import traceback
-        traceback.print_exc()
+        logger.error(error_msg, exc_info=True)
         return {"success": False, "error": error_msg}
