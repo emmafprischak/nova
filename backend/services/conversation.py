@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import OPENAI_API_KEY, NOVA_SYSTEM_PROMPT_EN, NOVA_SYSTEM_PROMPT_ES
+from config import OPENAI_API_KEY, NOVA_SYSTEM_PROMPT_EN, NOVA_SYSTEM_PROMPT_ES, NOVA_CANCELLATION_PROMPT_EN, NOVA_CANCELLATION_PROMPT_ES
 from models import ConversationState, Message
 import json
 
@@ -182,10 +182,15 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
             conversation.stage = 'booking'
 
     # Select the appropriate system prompt
-    # Use discovery prompt during discovery stage, normal prompt for booking or greeting
-    if hasattr(conversation, 'stage') and conversation.stage == 'discovery' and not conversation.discovery_complete:
+    # Priority: cancellation > discovery > normal
+    if hasattr(conversation, 'is_cancelling') and conversation.is_cancelling:
+        # User wants to cancel - use cancellation prompt
+        system_prompt = NOVA_CANCELLATION_PROMPT_ES if conversation.language == 'es' else NOVA_CANCELLATION_PROMPT_EN
+    elif hasattr(conversation, 'stage') and conversation.stage == 'discovery' and not conversation.discovery_complete:
+        # Discovery stage
         system_prompt = DISCOVERY_SYSTEM_PROMPT
     else:
+        # Normal conversation
         system_prompt = NOVA_SYSTEM_PROMPT_ES if conversation.language == 'es' else NOVA_SYSTEM_PROMPT_EN
     
     # Build messages for OpenAI

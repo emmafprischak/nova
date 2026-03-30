@@ -166,7 +166,7 @@ async def find_booking_by_phone(phone: str) -> dict:
         # Get bookings - v1 API doesn't require cal-api-version header
         params = {
             "apiKey": CAL_API_KEY,
-            "status": "accepted"  # Only upcoming bookings
+            "status": "upcoming"  # Only upcoming bookings
         }
         
         async with httpx.AsyncClient(timeout=30.0) as client:

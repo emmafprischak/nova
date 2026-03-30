@@ -1,0 +1,45 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CAbc155f302b4c862057793f63f81b5beb
+DATE: 2026-03-16 11:37:03
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    None
+│ Phone:   None
+│ Email:   None
+│ Service: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller needed assistance but did not provide specific details about their request.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the representative, Nova, greeted the caller and attempted to gather information by asking for their name and the reason for their call. However, the caller did not provide any personal details or clarify their needs.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ No appointment was booked, and the caller did not express a need for a callback.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should follow up with the caller via a general outreach message to encourage them to provide more information about their needs or to schedule an appointment.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: Hola take care of.
+NOVA: Hola! I'd love to help you out. What's your name, amigo?
+CALLER: Hola como estas.
+NOVA: Hola! Estoy muy bien, ¡gracias! And you? What brings you to Orbyn today?
+{"name": null, "phone": null, "email": null, "service": null, "ready_to_book": false}
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════

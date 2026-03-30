@@ -1,0 +1,42 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CA471fe9225cfe33431d3eda502fae576d
+DATE: 2026-03-30 09:48:11
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    None
+│ Phone:   None
+│ Email:   None
+│ Service: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller needed assistance with an unspecified issue related to Orbyn.AI services.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the caller expressed a need for support but did not provide specific details about their issue. The representative, Nova, prompted the caller for more information to better understand their needs.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ No appointment was booked, and the caller did not request a callback.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should follow up with the caller to gather more information about their issue and offer assistance as needed.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALLER: and,
+NOVA: And? Sounds like you were about to tell me something. What's on your mind?
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════

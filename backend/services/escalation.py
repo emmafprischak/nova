@@ -3,6 +3,7 @@ Human Escalation Service
 Detects when calls should be transferred to a human agent
 """
 
+from config import ESCALATION_PHONE_NUMBER
 import logging
 from typing import Optional
 
@@ -123,7 +124,7 @@ def get_escalation_phone_number() -> Optional[str]:
     For now, returns a single fallback number.
     """
     # TODO: Replace with actual team phone number
-    return "+18145550100"  # Example fallback number
+    return ESCALATION_PHONE_NUMBER
 
 
 def log_escalation(call_sid: str, reason: str, call_data: dict):

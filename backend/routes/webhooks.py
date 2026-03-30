@@ -1,7 +1,12 @@
 """
 Webhook Routes - Twilio calls these endpoints
 """
-from fastapi import APIRouter, Form, Response
+from fastapi import APIRouter, Form, Response, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
 from twilio.twiml.voice_response import VoiceResponse, Gather
 import sys
 import os
@@ -16,71 +21,12 @@ from services.two_factor_auth import create_verification, verify_code
 from services.sms import send_confirmation_sms
 from services.crm import create_lead, push_to_crm_backend
 from backend.services.transcript_integration import send_summary_to_crm
+from backend.services.sanitization import sanitize_for_tts, sanitize_user_input
 
-# Then in call_status, replace the previous CRM send with:
-
-@router.post("/voice/status")
-async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
-    """Receives call status updates"""
-    print(f"Call {CallSid} status: {CallStatus}")
-
-    try:
-        if CallStatus == "completed":
-            conversation = get_conversation(CallSid)
-            
-            # Generate call summary
-            try:
-                from services.transcript import generate_call_summary, save_summary_to_file
-                
-                summary = await generate_call_summary(
-                    messages=conversation.messages,
-                    call_data={
-                        "name": conversation.call_data.name,
-                        "phone": conversation.call_data.phone,
-                        "email": conversation.call_data.email,
-                        "service": conversation.call_data.service,
-                        "appointment_time": conversation.call_data.appointment_time,
-                        "status": conversation.call_data.status,
-                        "discovery_answers": conversation.call_data.discovery_answers,
-                    }
-                )
-                
-                filepath = save_summary_to_file(CallSid, summary)
-                print(f"✅ Saved call summary: {filepath}")
-                
-                # 🆕 Send ONLY the summary to CRM backend
-                crm_send_success = await send_summary_to_crm(
-                    call_sid=CallSid,
-                    summary_data=summary,
-                    call_data=conversation.call_data,
-                )
-                
-                if crm_send_success:
-                    print(f"✅ Summary sent to CRM for call {CallSid}")
-                else:
-                    print(f"⚠️ Failed to send summary to CRM for call {CallSid}")
-                
-            except Exception as e:
-                print(f"❌ Error generating summary: {e}")
-
-            if conversation.call_data.status == "new":
-                conversation.call_data.status = "no_booking"
-                try:
-                    await create_lead(conversation.call_data, CallSid)
-                except Exception as e:
-                    print(f"Failed to save lead on completion: {e}")
-                
-                # Push to CRM backend
-                try:
-                    await push_to_crm_backend(
-                        call_data=conversation.call_data,
-                        call_sid=CallSid,
-                        escalation_status="none",
-                    )
-                except Exception as e:
-                    print(f"Failed to push to CRM backend on completion: {e}")
 
 router = APIRouter()
+
+# Then in call_status, replace the previous CRM send with:
 
 # ========== FAQ HELPER FUNCTIONS ==========
 
@@ -136,7 +82,8 @@ def log_faq_miss(user_message: str, call_sid: str, language: str):
         print(f"Failed to log FAQ miss: {e}")
 
 @router.post("/voice/incoming")
-async def handle_incoming_call(CallSid: str = Form(...)):
+@limiter.limit("10/minute")
+async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
     """Called when someone calls your Twilio number"""
     print(f"Incoming call: {CallSid}")
 
@@ -159,29 +106,36 @@ async def handle_incoming_call(CallSid: str = Form(...)):
         )
 
         response.append(gather)
-        response.say("I didn't hear anything. Please call back when you're ready. Goodbye!", voice='Google.en-US-Neural2-F')
+        response.say(sanitize_for_tts("I didn't hear anything. Please call back when you're ready. Goodbye!"), voice='Google.en-US-Neural2-F')
 
         return Response(content=str(response), media_type="application/xml")
     except Exception as e:
         print(f"Error in incoming call: {e}")
         traceback.print_exc()
         response = VoiceResponse()
-        response.say("Sorry, there was an error. Please try again later.", voice='Google.en-US-Neural2-F')
+        response.say(sanitize_for_tts("Sorry, there was an error. Please try again later."), voice='Google.en-US-Neural2-F')
         return Response(content=str(response), media_type="application/xml")
 
 @router.post("/voice/process")
+@limiter.limit("30/minute")
 async def process_speech(
+    request: Request,
     CallSid: str = Form(...),
     SpeechResult: str = Form(None),
     From: str = Form(...)
 ):
     """Called after the user speaks"""
     print(f"User said: {SpeechResult}")
+    # Sanitize user input before processing
+    if SpeechResult:
+        SpeechResult = sanitize_user_input(SpeechResult)
+        print(f"Sanitized input: {SpeechResult}")
+
 
     try:
         if not SpeechResult:
             response = VoiceResponse()
-            response.say("Sorry, I didn't catch that. Could you say that again?", voice='Google.en-US-Neural2-F')
+            response.say(sanitize_for_tts("Sorry, I didn't catch that. Could you say that again?"), voice='Google.en-US-Neural2-F')
             response.redirect('/webhooks/voice/incoming')
             return Response(content=str(response), media_type="application/xml")
 
@@ -190,7 +144,21 @@ async def process_speech(
         print(f"Detected language: {detected_lang}")
 
         # ========== FAQ DETECTION ==========
-        faq_key = detect_faq_intent(SpeechResult)
+        # Get conversation state to check if we are in a special mode
+        conversation = get_conversation(CallSid)
+        
+        # Skip FAQ detection if in discovery or cancellation mode
+        skip_faq = (
+            (hasattr(conversation, "stage") and conversation.stage in ["discovery", "cancellation"]) or
+            (hasattr(conversation, "is_cancelling") and conversation.is_cancelling) or
+            (hasattr(conversation, "discovery_complete") and not conversation.discovery_complete)
+        )
+        
+        if not skip_faq:
+            faq_key = detect_faq_intent(SpeechResult)
+        else:
+            faq_key = None
+            print(f"Skipping FAQ detection - in {getattr(conversation, 'stage', 'unknown')} mode")
         
         if faq_key:
             print(f"FAQ detected: {faq_key}")
@@ -210,9 +178,13 @@ async def process_speech(
                 print("Human escalation requested - transferring to human")
                 
                 response = VoiceResponse()
-                response.say(faq_answer, voice=voice)
+                response.say(sanitize_for_tts(faq_answer), voice=voice)
                 
                 # Transfer to human immediately
+                
+                # Add a brief goodbye message before transfer
+                goodbye_msg = "Un momento, por favor..." if detected_lang == "es" else "Hold on just a sec, transferring you now..."
+                response.say(sanitize_for_tts(goodbye_msg), voice=voice)
                 response.dial("+18145550100")
                 
                 return Response(content=str(response), media_type="application/xml")
@@ -231,11 +203,11 @@ async def process_speech(
                 language=lang_code,
                 speech_model='experimental_conversations'
             )
-            gather.say(full_response, voice=voice)
+            gather.say(sanitize_for_tts(full_response), voice=voice)
             response.append(gather)
             
             fallback = "¿Sigues ahí?" if detected_lang == 'es' else "Hello? You still there?"
-            response.say(fallback, voice=voice)
+            response.say(sanitize_for_tts(fallback), voice=voice)
             # Removed redirect to prevent looping - call will end if no response
             
             return Response(content=str(response), media_type="application/xml")
@@ -255,7 +227,12 @@ async def process_speech(
             voice = 'Google.es-US-Neural2-A' if conversation.language == 'es' else 'Google.en-US-Neural2-F'
             
             response = VoiceResponse()
-            response.say(ai_response, voice=voice)
+            # Say the escalation message from AI
+            response.say(sanitize_for_tts(ai_response), voice=voice)
+            
+            # Add a brief goodbye message before transfer
+            goodbye_msg = "Un momento, por favor..." if conversation.language == 'es' else "Hold on just a sec, transferring you now..."
+            response.say(sanitize_for_tts(goodbye_msg), voice=voice)
             
             # Transfer to human (update phone number)
             response.dial("+18145550100")  # Your team's phone number
@@ -335,10 +312,20 @@ async def process_speech(
                     conversation.call_data.status = "needs_callback"
                     return Response(content=str(response), media_type="application/xml")
 
+        # FR-08: Trigger discovery stage if not already started or complete
+        if (extracted_data.get("ready_to_book") and 
+            not conversation.discovery_complete and
+            conversation.stage != 'discovery'):
+            # User wants to book but hasn't done discovery yet
+            conversation.stage = 'discovery'
+            print(f"Triggering discovery stage for {conversation.call_data.name}")
+
         # Check if ready to book
+        # FR-08: Only proceed to booking if discovery questions are complete
         if (conversation.call_data.name and
             conversation.call_data.phone and
-            extracted_data.get("ready_to_book")):
+            extracted_data.get("ready_to_book") and
+            conversation.discovery_complete):
 
             print("Ready to book, fetching slots...")
             slots = await get_available_slots()
@@ -353,7 +340,7 @@ async def process_speech(
                 language=lang_code,
                 speech_model='experimental_conversations'
             )
-            gather.say(f"{ai_response} {slots_speech}", voice=voice)
+            gather.say(sanitize_for_tts(f"{ai_response} {slots_speech}"), voice=voice)
             response.append(gather)
 
             return Response(content=str(response), media_type="application/xml")
@@ -367,10 +354,10 @@ async def process_speech(
             language=lang_code,
             speech_model='experimental_conversations'
         )
-        gather.say(ai_response, voice=voice)
+        gather.say(sanitize_for_tts(ai_response), voice=voice)
         response.append(gather)
 
-        response.say(fallback_message, voice=voice)
+        response.say(sanitize_for_tts(fallback_message), voice=voice)
         # Removed redirect to prevent looping - call will end if no response
 
         return Response(content=str(response), media_type="application/xml")
@@ -379,7 +366,7 @@ async def process_speech(
         print(f"Error in process_speech: {e}")
         traceback.print_exc()
         response = VoiceResponse()
-        response.say("Oops, I'm having a little tech issue. Let me have someone call you back. Thanks!", voice='Google.en-US-Neural2-F')
+        response.say(sanitize_for_tts("Oops, I'm having a little tech issue. Let me have someone call you back. Thanks!"), voice='Google.en-US-Neural2-F')
         return Response(content=str(response), media_type="application/xml")
 
 @router.post("/voice/book")
@@ -490,7 +477,7 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
         print(f"Error in book_slot: {e}")
         traceback.print_exc()
         response = VoiceResponse()
-        response.say("Oops, having a tech issue. Let me have someone call you back. Thanks!", voice='Google.en-US-Neural2-F')
+        response.say(sanitize_for_tts("Oops, having a tech issue. Let me have someone call you back. Thanks!"), voice='Google.en-US-Neural2-F')
         return Response(content=str(response), media_type="application/xml")
 
 @router.post("/voice/status")

@@ -1,0 +1,41 @@
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                          NOVA CALL SUMMARY                               ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+CALL ID: CA8734e06d55ba7bcf466cd814ec4fb957
+DATE: 2026-03-22 21:35:59
+
+┌─ CALLER INFORMATION ─────────────────────────────────────────────────────┐
+│ Name:    None
+│ Phone:   None
+│ Email:   None
+│ Service: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROBLEM STATEMENT ──────────────────────────────────────────────────────┐
+│ Caller needed assistance with a billing issue related to their recent subscription.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ CALL SUMMARY ───────────────────────────────────────────────────────────┐
+│ During the call, the representative gathered details about the caller's account and the specific billing discrepancies they encountered. The caller expressed confusion regarding charges that did not align with their subscription plan.
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ OUTCOME ────────────────────────────────────────────────────────────────┐
+│ An appointment was not booked, but the caller requested a follow-up call to resolve the billing issue.
+│ Appointment: None
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ NEXT STEPS ─────────────────────────────────────────────────────────────┐
+│ The team should schedule a callback for the caller to discuss the billing discrepancies in detail and provide clarification on their subscription charges.
+└──────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════╗
+║                         FULL TRANSCRIPT                                  ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+
+
+═══════════════════════════════════════════════════════════════════════════
+End of Summary
+═══════════════════════════════════════════════════════════════════════════
