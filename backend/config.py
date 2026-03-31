@@ -33,6 +33,9 @@ CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE", "walmart")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", 8000))
 
+# Webhook Configuration (ngrok URL that Twilio uses)
+WEBHOOK_BASE_URL = os.getenv("WEBHOOK_BASE_URL", "")
+
 # Nova's personality and instructions
 NOVA_SYSTEM_PROMPT_EN = """You are Nova, a warm and personable AI assistant for Orbyn.ai. You're having a natural phone conversation.
 

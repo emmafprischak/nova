@@ -6,13 +6,13 @@ from fastapi import Request, HTTPException
 from twilio.request_validator import RequestValidator
 import os
 
-def validate_twilio_request(request: Request, url: str) -> bool:
+async def validate_twilio_request(request: Request, url: str) -> bool:
     """
     Validate that the request is actually from Twilio.
     
     Args:
         request: FastAPI request object
-        url: The full URL of the webhook endpoint
+        url: The full URL of the webhook endpoint (must be the ngrok URL that Twilio sees)
         
     Returns:
         True if valid, raises HTTPException if not
@@ -43,21 +43,20 @@ def validate_twilio_request(request: Request, url: str) -> bool:
     
     # Get POST parameters as dict
     # Twilio sends form data, not JSON
-    try:
-        import asyncio
-        form_data = asyncio.run(request.form())
-        params = dict(form_data)
-    except:
-        params = {}
+    form_data = await request.form()
+    params = dict(form_data)
     
     # Validate the request
     is_valid = validator.validate(url, params, signature)
     
     if not is_valid:
         print(f'ERROR: Invalid Twilio signature for URL: {url}')
+        print(f'Expected signature for: {url}')
+        print(f'Got signature: {signature}')
         raise HTTPException(
             status_code=403,
             detail='Invalid Twilio signature'
         )
     
+    print(f'✅ Valid Twilio signature for: {url}')
     return True

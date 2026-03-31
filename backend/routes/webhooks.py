@@ -23,6 +23,8 @@ from services.crm import create_lead, push_to_crm_backend
 from backend.services.transcript_integration import send_summary_to_crm
 from backend.services.sanitization import sanitize_for_tts, sanitize_user_input
 
+from backend.services.twilio_security import validate_twilio_request
+from config import WEBHOOK_BASE_URL
 
 router = APIRouter()
 
@@ -87,6 +89,10 @@ async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
     """Called when someone calls your Twilio number"""
     print(f"Incoming call: {CallSid}")
 
+    # Validate Twilio signature
+    if WEBHOOK_BASE_URL:
+        await validate_twilio_request(request, f"{WEBHOOK_BASE_URL}/webhooks/voice/incoming")
+
     try:
         response = VoiceResponse()
         # Set language hints to support both English and Spanish
@@ -126,6 +132,10 @@ async def process_speech(
 ):
     """Called after the user speaks"""
     print(f"User said: {SpeechResult}")
+
+    # Validate Twilio signature
+    if WEBHOOK_BASE_URL:
+        await validate_twilio_request(request, f"{WEBHOOK_BASE_URL}/webhooks/voice/process")
     # Sanitize user input before processing
     if SpeechResult:
         SpeechResult = sanitize_user_input(SpeechResult)
@@ -373,6 +383,10 @@ async def process_speech(
 async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
     """Handle booking confirmation"""
     print(f"Booking: {SpeechResult}")
+
+    # Validate Twilio signature
+    if WEBHOOK_BASE_URL:
+        await validate_twilio_request(request, f"{WEBHOOK_BASE_URL}/webhooks/voice/book")
 
     try:
         conversation = get_conversation(CallSid)
