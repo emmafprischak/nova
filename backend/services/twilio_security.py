@@ -37,8 +37,8 @@ async def validate_twilio_request(request: Request, url: str) -> bool:
     if not signature:
         print('ERROR: No X-Twilio-Signature header found')
         raise HTTPException(
-            status_code=403,
-            detail='Missing Twilio signature'
+            status_code=404,
+            detail='404- nothing is found'
         )
     
     # Get POST parameters as dict
@@ -54,8 +54,8 @@ async def validate_twilio_request(request: Request, url: str) -> bool:
         print(f'Expected signature for: {url}')
         print(f'Got signature: {signature}')
         raise HTTPException(
-            status_code=403,
-            detail='Invalid Twilio signature'
+            status_code=404,
+            detail='404 nothing is found'
         )
     
     print(f'✅ Valid Twilio signature for: {url}')
