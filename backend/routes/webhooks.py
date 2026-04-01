@@ -434,10 +434,29 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
                 except Exception as notion_error:
                     print(f"Notion error (non-fatal): {notion_error}")
 
+                # Generate call summary before pushing to CRM
+                summary = None
+                try:
+                    summary_data = await generate_call_summary(
+                        messages=conversation.messages,
+                        call_data={
+                            "name": conversation.call_data.name,
+                            "phone": conversation.call_data.phone,
+                            "email": conversation.call_data.email,
+                            "service": conversation.call_data.service,
+                            "appointment_time": conversation.call_data.appointment_time,
+                            "status": conversation.call_data.status,
+                            "discovery_answers": conversation.call_data.discovery_answers,
+                        }
+                    )
+                    summary = summary_data.get("summary") if summary_data else None
+                except Exception as summary_error:
+                    print(f"Summary generation error (non-fatal): {summary_error}")
+
                 # Push to CRM backend
                 print("Pushing to CRM backend...")
                 try:
-                    await push_to_crm_backend(conversation.call_data, CallSid, escalation_status="none")
+                    await push_to_crm_backend(conversation.call_data, CallSid, summary=summary, escalation_status="none")
                 except Exception as crm_error:
                     print(f"CRM backend error (non-fatal): {crm_error}")
 
@@ -479,9 +498,28 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
         except Exception as e:
             print(f"Failed to save lead: {e}")
         
+        # Generate call summary before pushing to CRM
+        summary = None
+        try:
+            summary_data = await generate_call_summary(
+                messages=conversation.messages,
+                call_data={
+                    "name": conversation.call_data.name,
+                    "phone": conversation.call_data.phone,
+                    "email": conversation.call_data.email,
+                    "service": conversation.call_data.service,
+                    "appointment_time": conversation.call_data.appointment_time,
+                    "status": conversation.call_data.status,
+                    "discovery_answers": conversation.call_data.discovery_answers,
+                }
+            )
+            summary = summary_data.get("summary") if summary_data else None
+        except Exception as summary_error:
+            print(f"Summary generation error (non-fatal): {summary_error}")
+
         # Push to CRM backend
         try:
-            await push_to_crm_backend(conversation.call_data, CallSid, escalation_status="pending")
+            await push_to_crm_backend(conversation.call_data, CallSid, summary=summary, escalation_status="pending")
         except Exception as e:
             print(f"Failed to push to CRM backend: {e}")
 
@@ -504,9 +542,8 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
             conversation = get_conversation(CallSid)
             
             # Generate call summary
+            summary = None
             try:
-                from services.transcript import generate_call_summary, save_summary_to_file
-                
                 print(f"DEBUG: Conversation has {len(conversation.messages)} messages")
                 print(f"DEBUG: Call data: name={conversation.call_data.name}, phone={conversation.call_data.phone}")
                 
@@ -527,6 +564,23 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 print(f"✅ Saved call summary: {filepath}")
             except Exception as e:
                 print(f"❌ Error generating summary: {e}")
+
+            # Push comprehensive call log to /public/call-logs/ for all completed calls
+            try:
+                summary_text = summary.get("summary", "") if isinstance(summary, dict) else ""
+                transcript_text = summary.get("transcript", "") if isinstance(summary, dict) else ""
+                await push_call_log_to_backend(
+                    call_sid=CallSid,
+                    call_data=conversation.call_data,
+                    summary=summary_text,
+                    transcript=transcript_text,
+                    escalation_status="escalated" if conversation.call_data.status == "needs_human" else "none",
+                    language=conversation.language,
+                    discovery_answers=conversation.call_data.discovery_answers,
+                )
+                print("✅ Call log pushed to /public/call-logs/")
+            except Exception as e:
+                print(f"⚠️ Call log push failed (non-fatal): {e}")
 
             if conversation.call_data.status == "new":
                 conversation.call_data.status = "no_booking"
