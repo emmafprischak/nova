@@ -45,7 +45,7 @@ async def send_summary_to_crm(
             "outcome": summary_data.get("outcome", ""),
             "next_steps": summary_data.get("next_steps", ""),
             
-            # Old fields from submit-contact
+            # Old fields from call-logs
             "caller_name": call_data.name or "Unknown",
             "caller_phone": call_data.phone or "Unknown",
             "email": call_data.email or "novaisnotworking@orbyn.ai",

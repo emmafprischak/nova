@@ -97,7 +97,7 @@ async def push_to_crm_backend(
     Push contact/call data to the public CRM endpoint.
 
     The new endpoint expects only contact basics plus the tenant code:
-    POST {base_url}/public/submit-contact
+    POST {base_url}/call-logs
     Body: {"name", "email", "phone", "tenant_code", "summary",
            "escalation_status", "timestamp"}
     """
@@ -105,13 +105,13 @@ async def push_to_crm_backend(
         print("CRM backend URL not configured (CRM_BACKEND_URL missing), skipping push")
         return {"success": False, "error": "CRM backend URL not configured"}
     try:
-        url = f"{CRM_BACKEND_URL.rstrip('/')}/public/submit-contact"
+        url = f"{CRM_BACKEND_URL.rstrip('/')}/call-logs"
 
         headers = {
             "Content-Type": "application/json"
         }
 
-        # Minimal payload required by the public submit-contact endpoint
+        # Minimal payload required by the public call-logs endpoint
         payload = {
             "name": call_data.name or "Unknown",
             "email": call_data.email or "novaisnotworking@orbyn.ai",
