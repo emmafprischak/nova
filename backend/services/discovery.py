@@ -9,13 +9,43 @@ from enum import Enum
 
 class DiscoveryQuestion(str, Enum):
     """Questions we ask to qualify leads."""
+    COMPANY = "company"
     TIMELINE = "timeline"
     BUDGET = "budget"
     DECISION_MAKER = "decision_maker"
 
 
+# Tenant company mapping with fuzzy-matching keywords
+TENANT_COMPANY_MAP = {
+    "home_depot": {
+        "name": "Home Depot",
+        "keywords": ["home depot", "homedepot", "home", "depot"]
+    },
+    "walmart": {
+        "name": "Walmart",
+        "keywords": ["walmart", "wal mart", "wal-mart", "wm"]
+    },
+    "target": {
+        "name": "Target",
+        "keywords": ["target"]
+    },
+    "gannon_inc": {
+        "name": "Gannon INC",
+        "keywords": ["gannon inc", "gannon", "gannon incorporated"]
+    },
+    "test_gannon": {
+        "name": "Test Gannon",
+        "keywords": ["test gannon", "test"]
+    }
+}
+
+
 # Question templates
 QUESTION_PROMPTS = {
+    DiscoveryQuestion.COMPANY: {
+        "text": "What company are you calling for?",
+        "cues": ["Home Depot", "Walmart", "Target", "Gannon INC", "Test Gannon"]
+    },
     DiscoveryQuestion.TIMELINE: {
         "text": "When are you looking to get started?",
         "cues": ["ASAP", "this week", "this month", "just exploring"]
@@ -34,10 +64,11 @@ QUESTION_PROMPTS = {
 # System prompt for discovery stage
 DISCOVERY_SYSTEM_PROMPT = """You are Nova, a friendly AI assistant for Orbyn.ai.
 
-You're having a natural conversation to learn a bit more about what the caller needs. 
+You're having a natural conversation to learn a bit more about what the caller needs.
 
 Ask ONE question at a time - keep it conversational and natural:
-- First, ask about their timeline: "When are you looking to get started?"
+- First, ask what company they're calling for: "What company are you calling for?"
+- Then, ask about their timeline: "When are you looking to get started?"
 - Then ask about budget: "Do you have a budget in mind, or would you like an estimate first?"
 - Finally ask about decision-making: "Are you the main decision-maker, or will others be involved?"
 
@@ -48,14 +79,47 @@ CRITICAL RULES:
 - Sound natural and conversational, not scripted
 - If they volunteer information naturally, don't ask again
 
+- DO NOT repeat back their name, phone number, or email
+- DO NOT say things like "I have your name as..." or "Your phone is..."
+- Just acknowledge their answer briefly and move to the next question
+
 After you have their answers, let them know you're ready to help them book an appointment.
 """
 
 
+def resolve_tenant_code(user_input: str) -> Optional[str]:
+    """
+    Resolve company name to tenant code using fuzzy matching.
+
+    Args:
+        user_input: User's answer to "What company are you calling for?"
+
+    Returns:
+        tenant_code if match found, None otherwise
+    """
+    if not user_input:
+        return None
+
+    lower_input = user_input.lower().strip()
+
+    # Try exact and partial matching
+    for tenant_code, company_data in TENANT_COMPANY_MAP.items():
+        for keyword in company_data["keywords"]:
+            if keyword in lower_input or lower_input in keyword:
+                return tenant_code
+
+    return None
+
+
 def has_sufficient_discovery_data(answers: dict) -> bool:
     """
-    Returns True if we have at least 2 of the 3 key questions answered.
+    Returns True if we have the company AND at least 2 of the 3 other key questions answered.
     """
+    # Company is REQUIRED
+    if not answers.get(DiscoveryQuestion.COMPANY):
+        return False
+
+    # Need at least 2 of the other 3 questions
     answered = sum(
         1 for q in [DiscoveryQuestion.TIMELINE, DiscoveryQuestion.BUDGET, DiscoveryQuestion.DECISION_MAKER]
         if answers.get(q)
@@ -70,7 +134,16 @@ def extract_discovery_answers(user_input: str, current_answers: dict) -> dict:
     """
     lower = user_input.lower()
     answers = current_answers.copy()
-    
+
+    # Company detection (FIRST question - highest priority)
+    if not answers.get(DiscoveryQuestion.COMPANY):
+        tenant_code = resolve_tenant_code(user_input)
+        if tenant_code:
+            company_name = TENANT_COMPANY_MAP[tenant_code]["name"]
+            answers[DiscoveryQuestion.COMPANY] = company_name
+            # Store tenant_code for later use (will be picked up by webhooks)
+            answers["_tenant_code"] = tenant_code
+
     # Timeline detection
     if not answers.get(DiscoveryQuestion.TIMELINE):
         if any(word in lower for word in ["asap", "soon as possible", "urgent", "emergency"]):
@@ -81,7 +154,7 @@ def extract_discovery_answers(user_input: str, current_answers: dict) -> dict:
             answers[DiscoveryQuestion.TIMELINE] = "this month"
         elif any(word in lower for word in ["exploring", "just looking", "browsing"]):
             answers[DiscoveryQuestion.TIMELINE] = "just exploring"
-    
+
     # Budget detection
     if not answers.get(DiscoveryQuestion.BUDGET):
         if "specific budget" in lower or "have a budget" in lower or any(c.isdigit() for c in user_input):
@@ -92,7 +165,7 @@ def extract_discovery_answers(user_input: str, current_answers: dict) -> dict:
             answers[DiscoveryQuestion.BUDGET] = "need estimate"
         elif "no idea" in lower or "not sure" in lower:
             answers[DiscoveryQuestion.BUDGET] = "no idea"
-    
+
     # Decision-maker detection
     if not answers.get(DiscoveryQuestion.DECISION_MAKER):
         if any(word in lower for word in ["just me", "i decide", "i'm the", "my decision"]):
@@ -101,5 +174,5 @@ def extract_discovery_answers(user_input: str, current_answers: dict) -> dict:
             answers[DiscoveryQuestion.DECISION_MAKER] = "joint decision"
         elif "someone else" in lower:
             answers[DiscoveryQuestion.DECISION_MAKER] = "not decision-maker"
-    
+
     return answers

@@ -199,15 +199,17 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
     for msg in conversation.messages:
         messages.append({"role": msg.role, "content": msg.content})
     
-    # Add extraction instructions - make it clearer this is AFTER the spoken response
-    messages.append({
-        "role": "system", 
-        "content": """IMPORTANT: First, provide your conversational response to the user. Then, on a new line, output ONLY a JSON object (no additional text) with any extracted information:
+    # Only add extraction instructions when NOT in discovery mode
+    # JSON extraction is always enabled - we just parse it silently
+    if True:  # Always add extraction
+        # Add extraction instructions - make it clearer this is AFTER the spoken response
+        messages.append({
+            "role": "system", 
+            "content": """IMPORTANT: First, provide your conversational response to the user. Then, on a new line, output ONLY a JSON object (no additional text) with any extracted information:
 {"name": "value or null", "phone": "value or null", "email": "value or null", "service": "value or null", "ready_to_book": true/false}
 
 The JSON must come AFTER your spoken response and must not be part of what you say to the user."""
-    })
-    
+        })
     # Call OpenAI with settings optimized for natural conversation
     response = client.chat.completions.create(
         model="gpt-4",

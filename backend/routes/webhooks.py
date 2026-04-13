@@ -15,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from faq_data import FAQ_DATA, DEFAULT_RESPONSES
 from services.conversation import generate_response, get_conversation, end_conversation, detect_language
+from backend.services.discovery import resolve_tenant_code
 from services.calendar import get_available_slots, book_appointment, format_slots_for_speech, find_booking_by_phone
 from services.calendar_cancellation import cancel_appointment
 from services.two_factor_auth import create_verification, verify_code
@@ -99,10 +100,11 @@ async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
         gather = Gather(
             input='speech',
             action='/webhooks/voice/process',
-            speechTimeout='auto',
+            speechTimeout=2,
             language='en-US',
             hints='hola, hello, buenos días, ayuda, help, español, spanish',
-            speech_model='experimental_conversations'
+            speech_model='experimental_conversations',
+            enhanced=True
         )
 
         # Use Google's more natural neural voice
@@ -209,9 +211,10 @@ async def process_speech(
             gather = Gather(
                 input='speech',
                 action='/webhooks/voice/process',
-                speechTimeout='auto',
+                speechTimeout=2,
                 language=lang_code,
-                speech_model='experimental_conversations'
+                speech_model='experimental_conversations',
+            enhanced=True
             )
             gather.say(sanitize_for_tts(full_response), voice=voice)
             response.append(gather)
@@ -322,6 +325,17 @@ async def process_speech(
                     conversation.call_data.status = "needs_callback"
                     return Response(content=str(response), media_type="application/xml")
 
+        
+        # Resolve tenant code if company was identified in discovery
+        if conversation.call_data.discovery_answers.get("_tenant_code"):
+            tenant_code = conversation.call_data.discovery_answers["_tenant_code"]
+            conversation.call_data.tenant_code = tenant_code
+            print(f"✅ Tenant resolved: {tenant_code}")
+        elif conversation.discovery_complete and not conversation.call_data.tenant_code:
+            # Discovery complete but no tenant match - escalate
+            print("❌ No tenant match found - escalating to human")
+            extracted_data["escalate"] = True
+
         # FR-08: Trigger discovery stage if not already started or complete
         if (extracted_data.get("ready_to_book") and 
             not conversation.discovery_complete and
@@ -346,9 +360,10 @@ async def process_speech(
             gather = Gather(
                 input='speech',
                 action='/webhooks/voice/book',
-                speechTimeout='auto',
+                speechTimeout=2,
                 language=lang_code,
-                speech_model='experimental_conversations'
+                speech_model='experimental_conversations',
+            enhanced=True
             )
             gather.say(sanitize_for_tts(f"{ai_response} {slots_speech}"), voice=voice)
             response.append(gather)
@@ -360,9 +375,10 @@ async def process_speech(
         gather = Gather(
             input='speech',
             action='/webhooks/voice/process',
-            speechTimeout='auto',
+            speechTimeout=2,
             language=lang_code,
-            speech_model='experimental_conversations'
+            speech_model='experimental_conversations',
+            enhanced=True
         )
         gather.say(sanitize_for_tts(ai_response), voice=voice)
         response.append(gather)
@@ -380,7 +396,7 @@ async def process_speech(
         return Response(content=str(response), media_type="application/xml")
 
 @router.post("/voice/book")
-async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
+async def book_slot(request: Request, CallSid: str = Form(...), SpeechResult: str = Form(None)):
     """Handle booking confirmation"""
     print(f"Booking: {SpeechResult}")
 

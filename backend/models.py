@@ -13,6 +13,7 @@ class CallData(BaseModel):
     appointment_time: Optional[str] = None
     status: str = "new"
     notes: str = ""
+    tenant_code: Optional[str] = None
 
     # FR-08: Cancellation and discovery
     booking_uid: Optional[str] = None

@@ -116,7 +116,7 @@ async def push_to_crm_backend(
             "name": call_data.name or "Unknown",
             "email": call_data.email or "novaisnotworking@orbyn.ai",
             "phone": call_data.phone or "(555)555-5555",
-            "tenant_code": CRM_TENANT_CODE,
+            "tenant_code": call_data.tenant_code or CRM_TENANT_CODE,
             "summary": summary or "",
             "escalation_status": escalation_status or "none",
             "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -196,7 +196,7 @@ async def push_call_log_to_backend(
 
         payload = {
             "call_id": call_sid,
-            "tenant_code": CRM_TENANT_CODE,
+            "tenant_code": call_data.tenant_code or CRM_TENANT_CODE,
             "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "caller_info": {
                 "name": call_data.name or "Unknown",
