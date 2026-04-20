@@ -2,6 +2,7 @@
 Configuration file - loads all API keys and settings from .env file
 """
 import os
+import json
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -28,6 +29,18 @@ NOTION_API_URL = "https://api.notion.com/v1"
 # CRM Backend Configuration
 CRM_BACKEND_URL = os.getenv("CRM_BACKEND_URL", "https://crm-backend-8b97.onrender.com")
 CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE", "walmart")
+
+# Allowed Voice Agents Registry
+# JSON array – each entry: {"agent_id": str, "api_key": str, "allowed_tenants": [str, ...]}
+# Example: [{"agent_id":"nova-prod","api_key":"key_abc123","allowed_tenants":["walmart"]}]
+# When empty or unset, all agent-auth checks are bypassed (development mode).
+_allowed_agents_raw = os.getenv("ALLOWED_AGENTS", "[]")
+try:
+    ALLOWED_AGENTS: list[dict] = json.loads(_allowed_agents_raw)
+except json.JSONDecodeError:
+    import warnings
+    warnings.warn("ALLOWED_AGENTS env var is not valid JSON – defaulting to empty list")
+    ALLOWED_AGENTS = []
 
 # Server Configuration
 HOST = os.getenv("HOST", "0.0.0.0")

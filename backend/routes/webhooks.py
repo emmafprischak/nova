@@ -23,6 +23,8 @@ from services.crm import create_lead, push_to_crm_backend, push_call_log_to_back
 from services.transcript import generate_call_summary, save_summary_to_file
 from backend.services.transcript_integration import send_summary_to_crm
 from backend.services.sanitization import sanitize_for_tts, sanitize_user_input
+from backend.services.agent_auth import require_agent_for_tenant
+from backend.config import CRM_TENANT_CODE
 
 
 router = APIRouter()
@@ -86,6 +88,7 @@ def log_faq_miss(user_message: str, call_sid: str, language: str):
 @limiter.limit("10/minute")
 async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
     """Called when someone calls your Twilio number"""
+    require_agent_for_tenant(request, CRM_TENANT_CODE)
     print(f"Incoming call: {CallSid}")
 
     try:
@@ -126,6 +129,7 @@ async def process_speech(
     From: str = Form(...)
 ):
     """Called after the user speaks"""
+    require_agent_for_tenant(request, CRM_TENANT_CODE)
     print(f"User said: {SpeechResult}")
     # Sanitize user input before processing
     if SpeechResult:
@@ -520,8 +524,9 @@ async def book_slot(CallSid: str = Form(...), SpeechResult: str = Form(None)):
         return Response(content=str(response), media_type="application/xml")
 
 @router.post("/voice/status")
-async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
+async def call_status(request: Request, CallSid: str = Form(...), CallStatus: str = Form(...)):
     """Receives call status updates"""
+    require_agent_for_tenant(request, CRM_TENANT_CODE)
     print(f"Call {CallSid} status: {CallStatus}")
 
     try:
