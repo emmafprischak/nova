@@ -62,13 +62,13 @@ async def create_lead(call_data: CallData, call_sid: str) -> dict:
 
             if response.status_code != 200:
                 error_detail = response.text
-                print(f"Notion API Error {response.status_code}:")
-                print(f"Response: {error_detail}")
+                logger.error("Notion API Error", status_code=response.status_code)
+                logger.error("Notion API Response", response=error_detail)
                 return {"success": False, "error": error_detail}
 
             result = response.json()
 
-            print(f"Notion lead created!")
+            logger.info("Notion lead created")
             return {
                 "success": True,
                 "page_id": result.get("id"),
@@ -77,11 +77,11 @@ async def create_lead(call_data: CallData, call_sid: str) -> dict:
 
     except httpx.HTTPStatusError as e:
         error_detail = e.response.text if hasattr(e, 'response') else str(e)
-        print(f"Notion HTTP error: {e}")
+        logger.error("Notion HTTP error", error=str(e))
         print(f"Response body: {error_detail}")
         return {"success": False, "error": error_detail}
     except Exception as e:
-        print(f"Notion error: {e}")
+        logger.error("Notion error", error=str(e))
         import traceback
         traceback.print_exc()
         return {"success": False, "error": str(e)}
@@ -102,7 +102,7 @@ async def push_to_crm_backend(
            "escalation_status", "timestamp"}
     """
     if not CRM_BACKEND_URL:
-        print("CRM backend URL not configured (CRM_BACKEND_URL missing), skipping push")
+        logger.warning("CRM backend URL not configured, skipping push")
         return {"success": False, "error": "CRM backend URL not configured"}
     try:
         url = f"{CRM_BACKEND_URL.rstrip('/')}/call-logs"
@@ -135,13 +135,13 @@ async def push_to_crm_backend(
         if call_data.appointment_time:
             payload["appointment_time"] = call_data.appointment_time
 
-        print(f"Pushing to CRM backend: {url}")
+        logger.info("Pushing to CRM backend", url=url)
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
 
-            print("CRM backend: Contact submitted successfully")
+            logger.info("CRM backend contact submitted successfully")
             result = response.json() if response.text else {}
             return {
                 "success": True,
@@ -150,16 +150,16 @@ async def push_to_crm_backend(
 
     except httpx.TimeoutException as e:
         error_msg = f"CRM backend request timeout: {str(e)}"
-        print(error_msg)
+        logger.error("CRM operation failed", message=error_msg)
         return {"success": False, "error": error_msg}
     except httpx.HTTPStatusError as e:
         error_detail = e.response.text
-        print(f"CRM backend HTTP error: {e}")
+        logger.error("CRM backend HTTP error", error=str(e))
         print(f"Response body: {error_detail}")
         return {"success": False, "error": error_detail}
     except Exception as e:
         error_msg = f"CRM backend error: {str(e)}"
-        print(error_msg)
+        logger.error("CRM operation failed", message=error_msg)
         import traceback
         traceback.print_exc()
         return {"success": False, "error": error_msg}
@@ -185,7 +185,7 @@ async def push_call_log_to_backend(
     Complements push_to_crm_backend() which focuses on lead submission.
     """
     if not CRM_BACKEND_URL:
-        print("CRM backend URL not configured, skipping call log push")
+        logger.warning("CRM backend URL not configured, skipping call log push")
         return {"success": False, "error": "CRM backend URL not configured"}
     try:
         url = f"{CRM_BACKEND_URL.rstrip('/')}/public/call-logs/"
@@ -224,13 +224,13 @@ async def push_call_log_to_backend(
             "discovery_answers": discovery_answers if discovery_answers is not None else call_data.discovery_answers,
         }
 
-        print(f"Pushing call log to: {url}")
+        logger.info("Pushing call log", url=url)
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(url, json=payload, headers=headers)
             response.raise_for_status()
 
-            print("Call log pushed successfully")
+            logger.info("Call log pushed successfully")
             result = response.json() if response.text else {}
             return {
                 "success": True,
@@ -239,16 +239,16 @@ async def push_call_log_to_backend(
 
     except httpx.TimeoutException as e:
         error_msg = f"Call log push timeout: {str(e)}"
-        print(error_msg)
+        logger.error("CRM operation failed", message=error_msg)
         return {"success": False, "error": error_msg}
     except httpx.HTTPStatusError as e:
         error_detail = e.response.text
-        print(f"Call log push HTTP error: {e}")
+        logger.error("Call log push HTTP error", error=str(e))
         print(f"Response body: {error_detail}")
         return {"success": False, "error": error_detail}
     except Exception as e:
         error_msg = f"Call log push error: {str(e)}"
-        print(error_msg)
+        logger.error("CRM operation failed", message=error_msg)
         import traceback
         traceback.print_exc()
         return {"success": False, "error": error_msg}

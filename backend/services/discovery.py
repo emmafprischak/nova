@@ -13,6 +13,7 @@ class DiscoveryQuestion(str, Enum):
     TIMELINE = "timeline"
     BUDGET = "budget"
     DECISION_MAKER = "decision_maker"
+    TEAM_SIZE = "team_size"
 
 
 # Tenant company mapping with fuzzy-matching keywords
@@ -58,8 +59,12 @@ QUESTION_PROMPTS = {
         "text": "Are you the main decision-maker, or will others be involved?",
         "cues": ["just me", "joint decision", "someone else", "not sure"]
     },
-}
+    DiscoveryQuestion.TEAM_SIZE: {
+        "text": "How large is the team that would be using this?",
+        "cues": ["just me", "small team (2-10)", "medium team (11-50)", "large team (50+)"]
+    },
 
+}
 
 # System prompt for discovery stage
 DISCOVERY_SYSTEM_PROMPT = """You are Nova, a friendly AI assistant for Orbyn.ai.
@@ -70,7 +75,8 @@ Ask ONE question at a time - keep it conversational and natural:
 - First, ask what company they're calling for: "What company are you calling for?"
 - Then, ask about their timeline: "When are you looking to get started?"
 - Then ask about budget: "Do you have a budget in mind, or would you like an estimate first?"
-- Finally ask about decision-making: "Are you the main decision-maker, or will others be involved?"
+- Then ask about decision-making: "Are you the main decision-maker, or will others be involved?"
+- Finally ask about team size: "How large is the team that would be using this?"
 
 CRITICAL RULES:
 - Ask ONLY ONE question per response (1-2 sentences max)

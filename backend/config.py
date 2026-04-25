@@ -26,7 +26,7 @@ NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 NOTION_API_URL = "https://api.notion.com/v1"
 
 # CRM Backend Configuration
-CRM_BACKEND_URL = os.getenv("CRM_BACKEND_URL", "https://crm-backend-8b97.onrender.com")
+CRM_BACKEND_URL = os.getenv("CRM_BACKEND_URL")
 CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE", "walmart")
 
 # Server Configuration

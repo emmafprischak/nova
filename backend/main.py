@@ -10,20 +10,19 @@ from slowapi.errors import RateLimitExceeded
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes import webhooks, health
 from backend.config import HOST, PORT
+from backend.services.logger import StructuredLogger
 import uvicorn
+
+# Initialize logger
+logger = StructuredLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("=" * 60)
-    print("Nova Voice Agent Starting...")
-    print("=" * 60)
-    print(f"Twilio webhook: /webhooks/voice/incoming")
-    print(f"Health check: /health")
-    print("=" * 60)
+    logger.info("Nova Voice Agent Starting", webhooks=["/webhooks/voice/incoming"], health_endpoint="/health")
     yield
     # Shutdown
-    print("Nova shutting down...")
+    logger.info("Nova shutting down")
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -56,7 +55,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
 
 if __name__ == "__main__":
-    print(f"Starting server on {HOST}:{PORT}")
+    logger.info("Starting server", host=HOST, port=PORT)
     uvicorn.run(
         "main:app",
         host=HOST,

@@ -166,7 +166,7 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
     if is_cancellation_request(user_message) and not conversation.is_cancelling:
         conversation.is_cancelling = True
         conversation.stage = 'cancellation'
-        print(f"Cancellation detected for CallSid: {call_sid}")
+        logger.info("Cancellation detected", call_sid=call_sid)
     
     # FR-08: Extract discovery answers from user input
     if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
