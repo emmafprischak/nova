@@ -27,7 +27,8 @@ NOTION_API_URL = "https://api.notion.com/v1"
 
 # CRM Backend Configuration
 CRM_BACKEND_URL = os.getenv("CRM_BACKEND_URL")
-CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE", "walmart")
+CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE")  # Dynamically detected from conversation
+# HMAC Authentication for CRM (service-to-service)CRM_API_KEY = os.getenv("CRM_API_KEY", "")CRM_SIGNING_SECRET = os.getenv("CRM_SIGNING_SECRET", "")
 
 # Server Configuration
 HOST = os.getenv("HOST", "0.0.0.0")
