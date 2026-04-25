@@ -9,8 +9,9 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes import webhooks, health
-from backend.config import HOST, PORT
+from backend.config import HOST, PORT, WEBHOOK_BASE_URL
 from backend.services.logger import StructuredLogger
+from backend.middleware.https_enforcement import HTTPSEnforcementMiddleware
 import uvicorn
 
 # Initialize logger
@@ -36,6 +37,9 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add HTTPS enforcement middleware (checks X-Forwarded-Proto from ngrok/proxy)
+app.add_middleware(HTTPSEnforcementMiddleware, webhook_base_url=WEBHOOK_BASE_URL)
 
 # Add CORS middleware
 # Restrict to Twilio and trusted origins
