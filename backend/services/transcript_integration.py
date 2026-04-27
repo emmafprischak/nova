@@ -64,7 +64,7 @@ async def send_summary_to_crm(
             payload["appointment_time"] = call_data.appointment_time
         
         response = requests.post(
-            f"{CRM_BACKEND_URL}/call-logs",
+            f"{CRM_BACKEND_URL}/call-logs/",
             json=payload,
             timeout=10
         )

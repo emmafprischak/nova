@@ -62,7 +62,7 @@ def detect_language(text: str) -> str:
     spanish_word_count = sum(1 for word in spanish_indicators if word in text_lower)
 
     # If we find 2 or more Spanish indicators, it's likely Spanish
-    return 'es' if spanish_word_count >= 2 else 'en'
+    return 'es' if spanish_word_count >= 1 else 'en'
 
 def generate_response(call_sid: str, user_message: str, detected_language: str = None) -> tuple[str, dict]:
     """
@@ -212,7 +212,7 @@ The JSON must come AFTER your spoken response and must not be part of what you s
         })
     # Call OpenAI with settings optimized for natural conversation
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o-mini",
         messages=messages,
         temperature=0.9,  # Higher temperature for more natural, varied responses
         max_tokens=80,    # Shorter max to keep responses brief and punchy
@@ -261,7 +261,31 @@ The JSON must come AFTER your spoken response and must not be part of what you s
                             return spelling, extracted_data
             
             if extracted_data.get("phone"):
-                conversation.call_data.phone = extracted_data["phone"]
+                # Validate phone number - must be at least 10 digits
+                phone = extracted_data["phone"]
+                digits_only = re.sub(r'\D', '', phone)  # Remove all non-digits
+
+                if len(digits_only) < 10:
+                    # Phone number too short - ask again
+                    if not hasattr(conversation, 'phone_attempt_count'):
+                        conversation.phone_attempt_count = 0
+                    conversation.phone_attempt_count += 1
+
+                    if conversation.phone_attempt_count == 1:
+                        # First attempt - ask for 10 digit number
+                        response = "I need a valid 10-digit phone number. Can you provide that?"
+                        return response, extracted_data
+                    else:
+                        # Second attempt failed - ask for email instead
+                        response = "No problem, let me get your email address instead. What's your email?"
+                        # Clear the invalid phone
+                        extracted_data["phone"] = None
+                        return response, extracted_data
+                else:
+                    # Valid phone number
+                    conversation.call_data.phone = phone
+                    if hasattr(conversation, 'phone_attempt_count'):
+                        del conversation.phone_attempt_count
             if extracted_data.get("email"):
                 conversation.call_data.email = extracted_data["email"]
             if extracted_data.get("service"):
@@ -330,7 +354,7 @@ Call Transcript:
     
     # Call OpenAI to generate summary
     response = client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a helpful assistant that summarizes customer service calls concisely."},
             {"role": "user", "content": summary_prompt}

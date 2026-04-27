@@ -32,6 +32,7 @@ def _build_voice_agent_headers(tenant_code: str, body_bytes: bytes) -> dict:
 
     Uses the per-tenant credentials from the registry manager to construct an
     HMAC-SHA256 signature that the CRM backend can verify.
+    Falls back to hardcoded credentials for known tenants when registry is unavailable.
 
     Args:
         tenant_code: Identifies the tenant whose credentials to use.
@@ -44,10 +45,32 @@ def _build_voice_agent_headers(tenant_code: str, body_bytes: bytes) -> dict:
     """
     headers = {"Content-Type": "application/json"}
 
-    if registry_manager is None:
-        return headers
+    # Try to get credentials from registry first
+    creds = None
+    if registry_manager is not None:
+        creds = registry_manager.get_tenant_credentials(tenant_code)
 
-    creds = registry_manager.get_tenant_credentials(tenant_code)
+    # Fallback to hardcoded credentials for known tenants
+    if creds is None:
+        FALLBACK_CREDENTIALS = {
+            "celebrate_gannon": {
+                "api_key": "vai_DaLfrOsAeRU2LCPAxUIhzcC0FqkQ_FyP",
+                "signing_secret": "meXMVcjn-UkJEjkcRQ3UgSHBpBTfHeBs5QYFApg_peUoEmGXTPwlw6tkKanA6ydx"
+            }
+        }
+        if tenant_code in FALLBACK_CREDENTIALS:
+            creds = FALLBACK_CREDENTIALS[tenant_code]
+            logger.info(
+                "Using fallback credentials for tenant '%s' (registry unavailable)",
+                tenant_code
+            )
+        else:
+            logger.warning(
+                "No credentials found for tenant '%s'; sending unauthenticated request",
+                tenant_code,
+            )
+            return headers
+
     if not creds:
         logger.warning(
             "No registry credentials found for tenant '%s'; sending unauthenticated request",
@@ -209,7 +232,7 @@ async def push_to_crm_backend(
     Push contact/call data to the public CRM endpoint.
 
     The new endpoint expects only contact basics plus the tenant code:
-    POST {base_url}/call-logs
+    POST {base_url}/call-logs/
     Body: {"name", "email", "phone", "tenant_code", "summary",
            "escalation_status", "timestamp"}
 
@@ -220,7 +243,7 @@ async def push_to_crm_backend(
         logger.warning("CRM backend URL not configured, skipping push")
         return {"success": False, "error": "CRM backend URL not configured"}
     try:
-        url = f"{CRM_BACKEND_URL.rstrip('/')}/call-logs"
+        url = f"{CRM_BACKEND_URL.rstrip('/')}/call-logs/"
 
         headers = {
             "Content-Type": "application/json"
@@ -305,64 +328,77 @@ async def push_call_log_to_backend(
     """
     Push detailed call log to the CRM backend's /public/call-logs/ endpoint.
 
-    POST {base_url}/public/call-logs/
-    Body: {"call_id", "tenant_code", "timestamp", "caller_info", "call_metadata",
-           "call_outcome", "escalation", "summary", "transcript", "discovery_answers"}
-
-    Complements push_to_crm_backend() which focuses on lead submission.
+    Uses FLAT payload structure matching CRM backend CallLogCreate schema:
+    {"tenant_code", "full_transcript", "summary", "caller_name", "caller_phone", etc.}
     """
     if not CRM_BACKEND_URL:
         logger.warning("CRM backend URL not configured, skipping call log push")
         return {"success": False, "error": "CRM backend URL not configured"}
+
     try:
         url = f"{CRM_BACKEND_URL.rstrip('/')}/public/call-logs/"
 
         # Resolve tenant code: prefer per-call value, fall back to global config
         tenant_code = call_data.tenant_code or CRM_TENANT_CODE
 
+        if not tenant_code:
+            logger.error("No tenant_code available for call %s", call_sid)
+            return {"success": False, "error": "No tenant_code configured"}
+
+        # Build FLAT payload matching CRM backend schema
         payload = {
-            "call_id": call_sid,
-            "tenant_code": call_data.tenant_code or CRM_TENANT_CODE or tenant_code,
-            "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "caller_info": {
-                "name": call_data.name or "Unknown",
-                "phone": call_data.phone or "(555)555-5555",
-                "email": call_data.email or "novaisnotworking@orbyn.ai",
-            },
-            "call_metadata": {
-                "language": language,
-                "duration_seconds": duration_seconds,
-                "service_requested": call_data.service,
-            },
-            "call_outcome": {
-                "status": call_data.status,
-                "appointment_booked": bool(call_data.appointment_time),
-                "appointment_time": call_data.appointment_time,
-                "booking_uid": call_data.booking_uid,
-            },
-            "escalation": {
-                "escalation_status": escalation_status or "none",
-                "escalated_to_human": escalation_status == "escalated",
-                "reason": None,
-            },
-            "summary": summary or "",
-            "transcript": transcript or "",
-            "discovery_answers": discovery_answers if discovery_answers is not None else call_data.discovery_answers,
+            "tenant_code": tenant_code,
+            "full_transcript": transcript or ""
         }
+
+        # Add optional fields that match backend schema
+        if summary:
+            payload["summary"] = summary[:500]  # Limit length
+
+        if call_data.name:
+            payload["caller_name"] = call_data.name
+
+        if call_data.phone:
+            payload["caller_phone"] = call_data.phone
+
+        if call_data.email:
+            payload["caller_email"] = call_data.email
+
+        if duration_seconds:
+            payload["call_duration"] = duration_seconds
+
+        if escalation_status:
+            payload["escalation_status"] = escalation_status
+
+        # Add outcome field if we have status
+        if call_data.status:
+            payload["outcome"] = call_data.status[:50]  # Limit length
+
+        # Add problem statement from discovery answers if available
+        if discovery_answers and isinstance(discovery_answers, dict):
+            problem = discovery_answers.get("issue") or discovery_answers.get("reason_for_call")
+            if problem:
+                payload["problem_statement"] = str(problem)[:200]
+
+        # Add next steps if appointment was booked
+        if call_data.appointment_time:
+            payload["next_steps"] = f"Appointment booked for {call_data.appointment_time}"
 
         logger.info("Pushing call log to CRM backend: %s (tenant=%s, call_sid=%s)", url, tenant_code, call_sid)
 
-        body_bytes = json.dumps(payload).encode("utf-8")
+        # Serialize payload once for signing and sending (canonical JSON)
+        body_bytes = json.dumps(payload, separators=(',', ':')).encode("utf-8")
         headers = _build_voice_agent_headers(tenant_code, body_bytes)
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, content=body_bytes, headers=headers)
             response.raise_for_status()
 
-            logger.info("Call log pushed successfully (call_sid=%s)", call_sid)
+            logger.info("Call log pushed successfully (call_sid=%s, status=%s)", call_sid, response.status_code)
             result = response.json() if response.text else {}
             return {
                 "success": True,
+                "status_code": response.status_code,
                 "response": result
             }
 
@@ -374,12 +410,12 @@ async def push_call_log_to_backend(
         error_detail = e.response.text
         logger.error("Call log push HTTP error %s: %s", e.response.status_code, error_detail)
         print(f"Response body: {error_detail}")
-        return {"success": False, "error": error_detail}
+        return {"success": False, "status_code": e.response.status_code, "error": error_detail}
     except Exception as e:
         error_msg = f"Call log push error: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        logger.error("CRM operation failed", message=error_msg)
         import traceback
         traceback.print_exc()
         return {"success": False, "error": error_msg}
-  
+
+

@@ -1,13 +1,19 @@
 """
 Webhook Routes - Twilio calls these endpoints
 """
-from fastapi import APIRouter, Form, Response
+from fastapi import APIRouter, Form, Response, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 from twilio.twiml.voice_response import VoiceResponse, Gather
 import sys
 import os
 import traceback
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from config import WEBHOOK_BASE_URL
+from services.twilio_security import validate_twilio_request
 from faq_data import FAQ_DATA, DEFAULT_RESPONSES
 from services.conversation import generate_response, get_conversation, end_conversation, detect_language
 from services.calendar import get_available_slots, book_appointment, format_slots_for_speech, find_booking_by_phone
@@ -19,6 +25,7 @@ from services.transcript import generate_call_summary, save_summary_to_file
 from backend.services.logger import StructuredLogger, TraceContext, set_trace_id
 
 # Initialize logger
+router = APIRouter()
 logger = StructuredLogger(__name__)
 from backend.services.transcript_integration import send_summary_to_crm
 
@@ -172,7 +179,7 @@ async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
 
         # Use Google's more natural neural voice
         gather.say(
-            "Hey there! This is Nova from Orbyn AI. I can help you schedule consultations, answer questions about our services, and connect you with our team. What can I do for you today?",
+            "Hey there! This is Nova from Orbyn AI. Which company are you calling for?",
             voice='Google.en-US-Neural2-F'
         )
 
