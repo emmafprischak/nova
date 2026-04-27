@@ -1,17 +1,72 @@
 """
 CRM Service - Integrates with Notion database and CRM backend
 """
+import hashlib
+import hmac
 import httpx
+import json
 import logging
 import sys
 import os
+import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import NOTION_TOKEN, NOTION_DATABASE_ID, NOTION_API_URL, CRM_BACKEND_URL, CRM_TENANT_CODE
 from models import CallData
 from datetime import datetime, timezone
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from services.tenant_registry import TenantRegistryManager
 
 logger = logging.getLogger(__name__)
+
+# Module-level reference to the TenantRegistryManager, set during app startup.
+# When None, CRM requests are sent without per-tenant HMAC authentication.
+registry_manager: Optional["TenantRegistryManager"] = None
+
+
+def _build_voice_agent_headers(tenant_code: str, body_bytes: bytes) -> dict:
+    """
+    Build authenticated request headers for the CRM voice-agent endpoints.
+
+    Uses the per-tenant credentials from the registry manager to construct an
+    HMAC-SHA256 signature that the CRM backend can verify.
+
+    Args:
+        tenant_code: Identifies the tenant whose credentials to use.
+        body_bytes:  The serialised JSON request body (used in the signature).
+
+    Returns:
+        A dict with ``Content-Type`` and, when credentials are available,
+        ``X-Voice-Agent-Key``, ``X-Voice-Agent-Timestamp``, and
+        ``X-Voice-Agent-Signature`` headers.
+    """
+    headers = {"Content-Type": "application/json"}
+
+    if registry_manager is None:
+        return headers
+
+    creds = registry_manager.get_tenant_credentials(tenant_code)
+    if not creds:
+        logger.warning(
+            "No registry credentials found for tenant '%s'; sending unauthenticated request",
+            tenant_code,
+        )
+        return headers
+
+    timestamp = str(int(time.time()))
+    payload = f"{timestamp}.".encode("utf-8") + body_bytes
+    signature = hmac.new(
+        creds["signing_secret"].encode("utf-8"),
+        payload,
+        hashlib.sha256,
+    ).hexdigest()
+
+    headers["X-Voice-Agent-Key"] = creds["api_key"]
+    headers["X-Voice-Agent-Timestamp"] = timestamp
+    headers["X-Voice-Agent-Signature"] = signature
+    return headers
 
 async def create_lead(call_data: CallData, call_sid: str) -> dict:
     """Create a new lead entry in Notion"""
@@ -174,12 +229,15 @@ async def push_to_crm_backend(
         # Resolve escalation status automatically when not supplied by caller
         effective_escalation_status = escalation_status if escalation_status is not None else determine_escalation_status(call_data, summary)
 
+        # Resolve tenant code: prefer per-call value, fall back to global config
+        tenant_code = call_data.tenant_code or CRM_TENANT_CODE
+
         # Minimal payload required by the public submit-contact endpoint
         payload = {
             "name": call_data.name or "Unknown",
             "email": call_data.email or "novaisnotworking@orbyn.ai",
             "phone": call_data.phone or "(555)555-5555",
-            "tenant_code": CRM_TENANT_CODE,
+            "tenant_code": tenant_code,
             "summary": summary or "",
             "escalation_status": effective_escalation_status,
             "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -198,10 +256,13 @@ async def push_to_crm_backend(
         if call_data.appointment_time:
             payload["appointment_time"] = call_data.appointment_time
 
-        logger.info("Pushing contact to CRM backend: %s (escalation_status=%s)", url, effective_escalation_status)
+        logger.info("Pushing contact to CRM backend: %s (tenant=%s, escalation_status=%s)", url, tenant_code, effective_escalation_status)
+
+        body_bytes = json.dumps(payload).encode("utf-8")
+        headers = _build_voice_agent_headers(tenant_code, body_bytes)
 
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, content=body_bytes, headers=headers)
             response.raise_for_status()
 
             logger.info("CRM backend: Contact submitted successfully (call_sid=%s)", call_sid)
@@ -250,13 +311,12 @@ async def push_call_log_to_backend(
     try:
         url = f"{CRM_BACKEND_URL.rstrip('/')}/public/call-logs/"
 
-        headers = {
-            "Content-Type": "application/json"
-        }
+        # Resolve tenant code: prefer per-call value, fall back to global config
+        tenant_code = call_data.tenant_code or CRM_TENANT_CODE
 
         payload = {
             "call_id": call_sid,
-            "tenant_code": CRM_TENANT_CODE,
+            "tenant_code": tenant_code,
             "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "caller_info": {
                 "name": call_data.name or "Unknown",
@@ -284,10 +344,13 @@ async def push_call_log_to_backend(
             "discovery_answers": discovery_answers if discovery_answers is not None else call_data.discovery_answers,
         }
 
-        logger.info("Pushing call log to CRM backend: %s (call_sid=%s)", url, call_sid)
+        logger.info("Pushing call log to CRM backend: %s (tenant=%s, call_sid=%s)", url, tenant_code, call_sid)
+
+        body_bytes = json.dumps(payload).encode("utf-8")
+        headers = _build_voice_agent_headers(tenant_code, body_bytes)
 
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
+            response = await client.post(url, content=body_bytes, headers=headers)
             response.raise_for_status()
 
             logger.info("Call log pushed successfully (call_sid=%s)", call_sid)

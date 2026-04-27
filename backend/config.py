@@ -29,6 +29,12 @@ NOTION_API_URL = "https://api.notion.com/v1"
 CRM_BACKEND_URL = os.getenv("CRM_BACKEND_URL", "https://crm-backend-8b97.onrender.com")
 CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE", "walmart")
 
+# Tenant Registry Configuration (for multi-tenant support)
+# MASTER_NOVA_API_KEY authenticates Nova against the CRM tenant-registry endpoint
+MASTER_NOVA_API_KEY = os.getenv("MASTER_NOVA_API_KEY")
+# How often (seconds) Nova syncs the tenant registry in the background (default: 1 hour)
+REGISTRY_SYNC_INTERVAL = int(os.getenv("REGISTRY_SYNC_INTERVAL", 3600))
+
 # Server Configuration
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", 8000))

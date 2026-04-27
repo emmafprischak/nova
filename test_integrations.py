@@ -144,6 +144,12 @@ def _make_mock_http_client(status_code=200, response_body='{"success": true, "id
     async def mock_post(*args, **kwargs):
         if 'json' in kwargs:
             captured.update(kwargs['json'])
+        elif 'content' in kwargs:
+            # crm.py now sends raw JSON bytes via content=
+            import json as _json
+            raw = kwargs['content']
+            if isinstance(raw, bytes):
+                captured.update(_json.loads(raw))
         return mock_response
 
     mock_client = MagicMock()
@@ -416,6 +422,315 @@ def test_determine_escalation_status():
     return ok
 
 
+
+# ========== Tenant Registry unit tests ==========
+
+def _make_mock_registry_response(tenants):
+    """Build a mock httpx response for the tenant-registry endpoint."""
+    import json as _json
+    mock_response = Mock()
+    mock_response.status_code = 200
+    body = _json.dumps({"tenants": tenants})
+    mock_response.text = body
+    mock_response.json = Mock(return_value={"tenants": tenants})
+    mock_response.raise_for_status = Mock()
+    return mock_response
+
+
+async def test_tenant_registry_bootstrap():
+    """Unit test: TenantRegistryManager.bootstrap() loads active tenants into cache."""
+    print("\n" + "="*60)
+    print("Testing TenantRegistryManager - Bootstrap...")
+    print("="*60)
+
+    from backend.services.tenant_registry import TenantRegistryManager
+
+    sample_tenants = [
+        {"tenant_code": "walmart", "api_key": "vai_wmt", "signing_secret": "sec_wmt", "is_active": True},
+        {"tenant_code": "home_depot", "api_key": "vai_hd", "signing_secret": "sec_hd", "is_active": True},
+        {"tenant_code": "inactive_co", "api_key": "vai_inc", "signing_secret": "sec_inc", "is_active": False},
+    ]
+    mock_resp = _make_mock_registry_response(sample_tenants)
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def get(self, *args, **kwargs): return mock_resp
+
+    ok = True
+    with patch('httpx.AsyncClient', MockAsyncClient):
+        manager = TenantRegistryManager(
+            crm_url="https://crm.example.com",
+            master_api_key="master_key_test",
+        )
+        result = await manager.bootstrap()
+
+    if result:
+        print("   ✓ bootstrap() returned True")
+    else:
+        print("   ✗ bootstrap() returned False")
+        ok = False
+
+    registry = manager.get_all_tenants()
+    if len(registry) == 2:
+        print(f"   ✓ 2 active tenants loaded (inactive tenant excluded)")
+    else:
+        print(f"   ✗ expected 2 active tenants, got {len(registry)}")
+        ok = False
+
+    for code in ("walmart", "home_depot"):
+        creds = manager.get_tenant_credentials(code)
+        if creds and creds.get("api_key"):
+            print(f"   ✓ credentials present for '{code}'")
+        else:
+            print(f"   ✗ credentials missing for '{code}'")
+            ok = False
+
+    if not manager.get_tenant_credentials("inactive_co"):
+        print("   ✓ inactive tenant correctly excluded from registry")
+    else:
+        print("   ✗ inactive tenant incorrectly included in registry")
+        ok = False
+
+    if manager.is_tenant_active("walmart"):
+        print("   ✓ is_tenant_active('walmart') → True")
+    else:
+        print("   ✗ is_tenant_active('walmart') should be True")
+        ok = False
+
+    if not manager.is_tenant_active("unknown_tenant"):
+        print("   ✓ is_tenant_active('unknown_tenant') → False")
+    else:
+        print("   ✗ is_tenant_active('unknown_tenant') should be False")
+        ok = False
+
+    if ok:
+        print("\n✅ SUCCESS: TenantRegistryManager bootstrap works correctly")
+    else:
+        print("\n❌ FAILED: TenantRegistryManager bootstrap has issues")
+    return ok
+
+
+async def test_tenant_registry_stale_cache_on_failure():
+    """Unit test: registry keeps stale cache when CRM is unreachable."""
+    print("\n" + "="*60)
+    print("Testing TenantRegistryManager - Stale Cache Fallback...")
+    print("="*60)
+
+    from backend.services.tenant_registry import TenantRegistryManager
+
+    sample_tenants = [
+        {"tenant_code": "walmart", "api_key": "vai_wmt", "signing_secret": "sec_wmt", "is_active": True},
+    ]
+    mock_resp = _make_mock_registry_response(sample_tenants)
+
+    call_count = {"n": 0}
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def get(self, *args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return mock_resp  # First call succeeds
+            raise ConnectionError("CRM is down")  # Subsequent calls fail
+
+    ok = True
+    with patch('httpx.AsyncClient', MockAsyncClient):
+        manager = TenantRegistryManager(
+            crm_url="https://crm.example.com",
+            master_api_key="master_key_test",
+        )
+        await manager.bootstrap()  # Load initial registry
+        initial_count = len(manager.get_all_tenants())
+
+        # Simulate a failed sync (CRM down)
+        try:
+            await manager._fetch_and_update()
+        except Exception:
+            pass  # Expected failure
+
+    if initial_count == 1 and len(manager.get_all_tenants()) == 1:
+        print("   ✓ stale cache preserved after failed sync")
+    else:
+        print(f"   ✗ expected 1 tenant in stale cache, got {len(manager.get_all_tenants())}")
+        ok = False
+
+    if manager.get_tenant_credentials("walmart"):
+        print("   ✓ walmart credentials still available from stale cache")
+    else:
+        print("   ✗ walmart credentials lost after failed sync")
+        ok = False
+
+    if ok:
+        print("\n✅ SUCCESS: Stale cache fallback works correctly")
+    else:
+        print("\n❌ FAILED: Stale cache fallback has issues")
+    return ok
+
+
+async def test_crm_push_with_hmac_auth():
+    """Unit test: CRM push includes HMAC auth headers when registry is configured."""
+    print("\n" + "="*60)
+    print("Testing CRM Push - HMAC Authentication Headers...")
+    print("="*60)
+
+    import backend.services.crm as crm_module
+    from backend.services.tenant_registry import TenantRegistryManager
+
+    # Patch in a fake registry with known credentials
+    fake_registry = TenantRegistryManager(
+        crm_url="https://crm.example.com",
+        master_api_key="master_key_test",
+    )
+    fake_registry._registry = {
+        "walmart": {"api_key": "vai_wmt_test", "signing_secret": "super_secret_wmt", "is_active": True},
+    }
+
+    captured_headers = {}
+    captured_body = {}
+
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.text = '{"id": "log_1"}'
+    mock_response.json = Mock(return_value={"id": "log_1"})
+    mock_response.raise_for_status = Mock()
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def post(self, *args, **kwargs):
+            captured_headers.update(kwargs.get("headers", {}))
+            import json as _json
+            raw = kwargs.get("content", b"")
+            if isinstance(raw, bytes):
+                captured_body.update(_json.loads(raw))
+            return mock_response
+
+    test_call_data = CallData(
+        name="Tenant Test",
+        phone="+15550001111",
+        email="tenant@example.com",
+        status="booked",
+        tenant_code="walmart",
+    )
+
+    original_manager = crm_module.registry_manager
+    try:
+        crm_module.registry_manager = fake_registry
+        with patch('httpx.AsyncClient', MockAsyncClient):
+            result = await crm_module.push_to_crm_backend(
+                call_data=test_call_data,
+                call_sid="MOCK_HMAC_SID",
+                summary="Test HMAC call.",
+                escalation_status="none",
+            )
+    finally:
+        crm_module.registry_manager = original_manager
+
+    ok = True
+    if result.get("success"):
+        print("   ✓ push_to_crm_backend returned success")
+    else:
+        print(f"   ✗ push_to_crm_backend failed: {result.get('error')}")
+        ok = False
+
+    for header in ("X-Voice-Agent-Key", "X-Voice-Agent-Timestamp", "X-Voice-Agent-Signature"):
+        if captured_headers.get(header):
+            print(f"   ✓ {header} present in request headers")
+        else:
+            print(f"   ✗ {header} missing from request headers")
+            ok = False
+
+    if captured_headers.get("X-Voice-Agent-Key") == "vai_wmt_test":
+        print("   ✓ correct api_key used in X-Voice-Agent-Key")
+    else:
+        print(f"   ✗ expected 'vai_wmt_test', got {captured_headers.get('X-Voice-Agent-Key')!r}")
+        ok = False
+
+    if captured_body.get("tenant_code") == "walmart":
+        print("   ✓ tenant_code 'walmart' in payload (from call_data.tenant_code)")
+    else:
+        print(f"   ✗ tenant_code expected 'walmart', got {captured_body.get('tenant_code')!r}")
+        ok = False
+
+    if ok:
+        print("\n✅ SUCCESS: HMAC authentication headers added correctly")
+    else:
+        print("\n❌ FAILED: HMAC authentication header issues found")
+    return ok
+
+
+async def test_crm_push_tenant_code_fallback():
+    """Unit test: CRM push falls back to CRM_TENANT_CODE when call_data has no tenant_code."""
+    print("\n" + "="*60)
+    print("Testing CRM Push - tenant_code Fallback to Config...")
+    print("="*60)
+
+    import backend.services.crm as crm_module
+
+    captured_body = {}
+
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.text = '{"id": "log_2"}'
+    mock_response.json = Mock(return_value={"id": "log_2"})
+    mock_response.raise_for_status = Mock()
+
+    class MockAsyncClient:
+        def __init__(self, *args, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def post(self, *args, **kwargs):
+            import json as _json
+            raw = kwargs.get("content", b"")
+            if isinstance(raw, bytes):
+                captured_body.update(_json.loads(raw))
+            return mock_response
+
+    # call_data without tenant_code → should fall back to CRM_TENANT_CODE from config
+    test_call_data = CallData(
+        name="Fallback Test",
+        phone="+15550002222",
+        status="booked",
+    )
+
+    original_manager = crm_module.registry_manager
+    try:
+        crm_module.registry_manager = None  # No registry configured
+        with patch('httpx.AsyncClient', MockAsyncClient):
+            result = await crm_module.push_to_crm_backend(
+                call_data=test_call_data,
+                call_sid="MOCK_FALLBACK_SID",
+            )
+    finally:
+        crm_module.registry_manager = original_manager
+
+    ok = True
+    if result.get("success"):
+        print("   ✓ push_to_crm_backend returned success")
+    else:
+        print(f"   ✗ push_to_crm_backend failed: {result.get('error')}")
+        ok = False
+
+    # tenant_code in payload should come from the global CRM_TENANT_CODE config
+    from backend.config import CRM_TENANT_CODE
+    if captured_body.get("tenant_code") == CRM_TENANT_CODE:
+        print(f"   ✓ tenant_code fell back to config value '{CRM_TENANT_CODE}'")
+    else:
+        print(f"   ✗ tenant_code expected '{CRM_TENANT_CODE}', got {captured_body.get('tenant_code')!r}")
+        ok = False
+
+    if ok:
+        print("\n✅ SUCCESS: tenant_code fallback works correctly")
+    else:
+        print("\n❌ FAILED: tenant_code fallback has issues")
+    return ok
+
+
 async def main():
     """Run all integration tests"""
     print("\n" + "="*60)
@@ -440,6 +755,12 @@ async def main():
     # Escalation status unit test (sync)
     escalation_ok = test_determine_escalation_status()
 
+    # Tenant Registry unit tests
+    registry_bootstrap_ok = await test_tenant_registry_bootstrap()
+    registry_stale_ok = await test_tenant_registry_stale_cache_on_failure()
+    crm_hmac_ok = await test_crm_push_with_hmac_auth()
+    crm_fallback_ok = await test_crm_push_tenant_code_fallback()
+
     # Summary
     print("\n" + "="*60)
     print("TEST SUMMARY")
@@ -452,12 +773,17 @@ async def main():
     print(f"CRM Mock - Pending:           {'✅ WORKING' if crm_mock_pending_ok else '❌ FAILED'}")
     print(f"CRM Mock - Minimal Fields:    {'✅ WORKING' if crm_mock_minimal_ok else '❌ FAILED'}")
     print(f"Escalation Status Logic:      {'✅ WORKING' if escalation_ok else '❌ FAILED'}")
+    print(f"Registry - Bootstrap:         {'✅ WORKING' if registry_bootstrap_ok else '❌ FAILED'}")
+    print(f"Registry - Stale Cache:       {'✅ WORKING' if registry_stale_ok else '❌ FAILED'}")
+    print(f"CRM Push - HMAC Auth:         {'✅ WORKING' if crm_hmac_ok else '❌ FAILED'}")
+    print(f"CRM Push - Tenant Fallback:   {'✅ WORKING' if crm_fallback_ok else '❌ FAILED'}")
     print("="*60 + "\n")
 
     all_ok = (
         calcom_ok and notion_ok and crm_backend_ok and
         crm_mock_booked_ok and crm_mock_escalated_ok and
-        crm_mock_pending_ok and crm_mock_minimal_ok and escalation_ok
+        crm_mock_pending_ok and crm_mock_minimal_ok and escalation_ok and
+        registry_bootstrap_ok and registry_stale_ok and crm_hmac_ok and crm_fallback_ok
     )
 
     if all_ok:
