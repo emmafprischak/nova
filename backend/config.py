@@ -26,8 +26,9 @@ NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 NOTION_API_URL = "https://api.notion.com/v1"
 
 # CRM Backend Configuration
-CRM_BACKEND_URL = os.getenv("CRM_BACKEND_URL", "https://crm-backend-8b97.onrender.com")
-CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE", "walmart")
+CRM_BACKEND_URL = os.getenv("CRM_BACKEND_URL")
+CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE")  # Dynamically detected from conversation
+# HMAC Authentication for CRM (service-to-service)CRM_API_KEY = os.getenv("CRM_API_KEY", "")CRM_SIGNING_SECRET = os.getenv("CRM_SIGNING_SECRET", "")
 
 # Tenant Registry Configuration (for multi-tenant support)
 # MASTER_NOVA_API_KEY authenticates Nova against the CRM tenant-registry endpoint
@@ -38,6 +39,9 @@ REGISTRY_SYNC_INTERVAL = int(os.getenv("REGISTRY_SYNC_INTERVAL", 3600))
 # Server Configuration
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", 8000))
+
+# Webhook Configuration (ngrok URL that Twilio uses)
+WEBHOOK_BASE_URL = os.getenv("WEBHOOK_BASE_URL", "")
 
 # Nova's personality and instructions
 NOVA_SYSTEM_PROMPT_EN = """You are Nova, a warm and personable AI assistant for Orbyn.ai. You're having a natural phone conversation.

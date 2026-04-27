@@ -10,12 +10,17 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes import webhooks, health
-from backend.config import HOST, PORT, CRM_BACKEND_URL, MASTER_NOVA_API_KEY, REGISTRY_SYNC_INTERVAL
+from backend.config import HOST, PORT, CRM_BACKEND_URL, MASTER_NOVA_API_KEY, REGISTRY_SYNC_INTERVAL, WEBHOOK_BASE_URL
 import backend.services.crm as crm_service
+from backend.services.logger import StructuredLogger
+from backend.middleware.https_enforcement import HTTPSEnforcementMiddleware
 import uvicorn
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Initialize logger
+logger = StructuredLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -53,6 +58,7 @@ async def lifespan(app: FastAPI):
             "Set MASTER_NOVA_API_KEY and CRM_BACKEND_URL to enable multi-tenant support."
         )
 
+    logger.info("Nova Voice Agent Starting", webhooks=["/webhooks/voice/incoming"], health_endpoint="/health")
     yield
 
     # Shutdown
@@ -63,6 +69,7 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
     print("Nova shutting down...")
+    logger.info("Nova shutting down")
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -76,6 +83,9 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add HTTPS enforcement middleware (checks X-Forwarded-Proto from ngrok/proxy)
+app.add_middleware(HTTPSEnforcementMiddleware, webhook_base_url=WEBHOOK_BASE_URL)
 
 # Add CORS middleware
 # Restrict to Twilio and trusted origins
@@ -95,7 +105,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["Webhooks"])
 
 if __name__ == "__main__":
-    print(f"Starting server on {HOST}:{PORT}")
+    logger.info("Starting server", host=HOST, port=PORT)
     uvicorn.run(
         "main:app",
         host=HOST,

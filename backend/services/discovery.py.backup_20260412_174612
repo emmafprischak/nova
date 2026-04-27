@@ -13,7 +13,6 @@ class DiscoveryQuestion(str, Enum):
     TIMELINE = "timeline"
     BUDGET = "budget"
     DECISION_MAKER = "decision_maker"
-    TEAM_SIZE = "team_size"
 
 
 # Tenant company mapping with fuzzy-matching keywords
@@ -38,11 +37,6 @@ TENANT_COMPANY_MAP = {
         "name": "Test Gannon",
         "keywords": ["test gannon", "test"]
     }
-    ,
-    "celebrate_gannon": {
-        "name": "Celebrate Gannon",
-        "keywords": ["celebrate gannon", "celebrate", "gannon university", "gannon"]
-    }
 }
 
 
@@ -50,7 +44,7 @@ TENANT_COMPANY_MAP = {
 QUESTION_PROMPTS = {
     DiscoveryQuestion.COMPANY: {
         "text": "What company are you calling for?",
-        "cues": ["Home Depot", "Walmart", "Target", "Gannon INC", "Test Gannon", "Celebrate Gannon"]
+        "cues": ["Home Depot", "Walmart", "Target", "Gannon INC", "Test Gannon"]
     },
     DiscoveryQuestion.TIMELINE: {
         "text": "When are you looking to get started?",
@@ -64,12 +58,8 @@ QUESTION_PROMPTS = {
         "text": "Are you the main decision-maker, or will others be involved?",
         "cues": ["just me", "joint decision", "someone else", "not sure"]
     },
-    DiscoveryQuestion.TEAM_SIZE: {
-        "text": "How large is the team that would be using this?",
-        "cues": ["just me", "small team (2-10)", "medium team (11-50)", "large team (50+)"]
-    },
-
 }
+
 
 # System prompt for discovery stage
 DISCOVERY_SYSTEM_PROMPT = """You are Nova, a friendly AI assistant for Orbyn.ai.
@@ -80,8 +70,7 @@ Ask ONE question at a time - keep it conversational and natural:
 - First, ask what company they're calling for: "What company are you calling for?"
 - Then, ask about their timeline: "When are you looking to get started?"
 - Then ask about budget: "Do you have a budget in mind, or would you like an estimate first?"
-- Then ask about decision-making: "Are you the main decision-maker, or will others be involved?"
-- Finally ask about team size: "How large is the team that would be using this?"
+- Finally ask about decision-making: "Are you the main decision-maker, or will others be involved?"
 
 CRITICAL RULES:
 - Ask ONLY ONE question per response (1-2 sentences max)
@@ -89,10 +78,6 @@ CRITICAL RULES:
 - Don't list all the questions at once
 - Sound natural and conversational, not scripted
 - If they volunteer information naturally, don't ask again
-
-- DO NOT repeat back their name, phone number, or email
-- DO NOT say things like "I have your name as..." or "Your phone is..."
-- Just acknowledge their answer briefly and move to the next question
 
 After you have their answers, let them know you're ready to help them book an appointment.
 """
