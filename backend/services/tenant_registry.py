@@ -18,7 +18,7 @@ Usage:
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 import httpx
@@ -150,7 +150,7 @@ class TenantRegistryManager:
                         }
 
             self._registry = new_registry
-            self.last_refresh = datetime.utcnow()
+            self.last_refresh = datetime.now(timezone.utc)
             logger.info(
                 "TenantRegistryManager: registry synced — %d active tenant(s)",
                 len(self._registry),
