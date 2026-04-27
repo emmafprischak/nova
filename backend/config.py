@@ -30,6 +30,12 @@ CRM_BACKEND_URL = os.getenv("CRM_BACKEND_URL")
 CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE")  # Dynamically detected from conversation
 # HMAC Authentication for CRM (service-to-service)CRM_API_KEY = os.getenv("CRM_API_KEY", "")CRM_SIGNING_SECRET = os.getenv("CRM_SIGNING_SECRET", "")
 
+# Tenant Registry Configuration (for multi-tenant support)
+# MASTER_NOVA_API_KEY authenticates Nova against the CRM tenant-registry endpoint
+MASTER_NOVA_API_KEY = os.getenv("MASTER_NOVA_API_KEY")
+# How often (seconds) Nova syncs the tenant registry in the background (default: 1 hour)
+REGISTRY_SYNC_INTERVAL = int(os.getenv("REGISTRY_SYNC_INTERVAL", 3600))
+
 # Server Configuration
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", 8000))

@@ -14,7 +14,8 @@ from services.calendar import get_available_slots, book_appointment, format_slot
 from services.calendar_cancellation import cancel_appointment
 from services.two_factor_auth import create_verification, verify_code
 from services.sms import send_confirmation_sms
-from services.crm import create_lead, push_to_crm_backend
+from services.crm import create_lead, push_to_crm_backend, push_call_log_to_backend, determine_escalation_status
+from services.transcript import generate_call_summary, save_summary_to_file
 from backend.services.logger import StructuredLogger, TraceContext, set_trace_id
 
 # Initialize logger
@@ -557,6 +558,25 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 )
                 
                 filepath = save_summary_to_file(CallSid, summary)
+                print(f"✅ Saved call summary: {filepath}")
+            except Exception as e:
+                print(f"❌ Error generating summary: {e}")
+
+            # Push comprehensive call log to /public/call-logs/ for all completed calls
+            try:
+                summary_text = summary.get("summary", "") if isinstance(summary, dict) else ""
+                transcript_text = summary.get("transcript", "") if isinstance(summary, dict) else ""
+                call_log_escalation = determine_escalation_status(conversation.call_data, summary_text)
+                await push_call_log_to_backend(
+                    call_sid=CallSid,
+                    call_data=conversation.call_data,
+                    summary=summary_text,
+                    transcript=transcript_text,
+                    escalation_status=call_log_escalation,
+                    language=conversation.language,
+                    discovery_answers=conversation.call_data.discovery_answers,
+                )
+                print("✅ Call log pushed to /public/call-logs/")
                 logger.info("Saved call summary", filepath=filepath)
             except Exception as e:
                 logger.error("Error generating summary", error=str(e))
@@ -566,17 +586,23 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 try:
                     await create_lead(conversation.call_data, CallSid)
                 except Exception as e:
+                    print(f"Failed to save lead on completion: {e}")
+
+                # Push to CRM backend with summary text (extracted from summary dict)
                     logger.error("Failed to save lead on completion", error=str(e))
                 
                 # Push to CRM backend with summary (will be None if generation failed)
                 try:
+                    summary_text = summary.get("summary", "") if isinstance(summary, dict) else ""
+                    crm_escalation = determine_escalation_status(conversation.call_data, summary_text)
                     await push_to_crm_backend(
                         call_data=conversation.call_data,
                         call_sid=CallSid,
-                        summary=summary,
-                        escalation_status="none",
+                        summary=summary_text,
+                        escalation_status=crm_escalation,
                     )
                 except Exception as e:
+                    print(f"Failed to push to CRM backend on completion: {e}")
                     logger.error("Failed to push to CRM backend", error=str(e))
                     
 

@@ -18,6 +18,9 @@ class CallData(BaseModel):
     # FR-08: Cancellation and discovery
     booking_uid: Optional[str] = None
     discovery_answers: dict = {}
+
+    # Multi-tenant: identifies which tenant this call belongs to
+    tenant_code: Optional[str] = None
    
     
 class Message(BaseModel):
