@@ -15,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import WEBHOOK_BASE_URL
 from services.twilio_security import validate_twilio_request
 from faq_data import FAQ_DATA, DEFAULT_RESPONSES
+from backend.services.semantic_faq import hybrid_faq_search, initialize_faq_embeddings
 from services.conversation import generate_response, get_conversation, end_conversation, detect_language
 from services.calendar import get_available_slots, book_appointment, format_slots_for_speech, find_booking_by_phone
 from services.calendar_cancellation import cancel_appointment
