@@ -35,6 +35,9 @@ CRM_TENANT_CODE = os.getenv("CRM_TENANT_CODE")  # Dynamically detected from conv
 MASTER_NOVA_API_KEY = os.getenv("MASTER_NOVA_API_KEY")
 # How often (seconds) Nova syncs the tenant registry in the background (default: 1 hour)
 REGISTRY_SYNC_INTERVAL = int(os.getenv("REGISTRY_SYNC_INTERVAL", 3600))
+# Strategy used to pick a tenant when the registry contains multiple active tenants.
+# Supported values: "first_available" (default)
+TENANT_SELECTION_STRATEGY = os.getenv("TENANT_SELECTION_STRATEGY", "first_available")
 
 # Server Configuration
 HOST = os.getenv("HOST", "0.0.0.0")

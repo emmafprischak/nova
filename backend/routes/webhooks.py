@@ -22,6 +22,7 @@ from services.calendar_cancellation import cancel_appointment
 from services.two_factor_auth import create_verification, verify_code
 from services.sms import send_confirmation_sms
 from services.crm import create_lead, push_to_crm_backend, push_call_log_to_backend, determine_escalation_status
+from services.tenant_determination import get_tenant_for_call
 from services.transcript import generate_call_summary, save_summary_to_file
 from backend.services.logger import StructuredLogger, TraceContext, set_trace_id
 
@@ -167,6 +168,11 @@ async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
     if WEBHOOK_BASE_URL:
         await validate_twilio_request(request, f"{WEBHOOK_BASE_URL}/webhooks/voice/incoming")
     try:
+        # Determine tenant for this call from the registry (falls back to CRM_TENANT_CODE)
+        conversation = get_conversation(CallSid)
+        conversation.call_data.tenant_code = get_tenant_for_call()
+        logger.info("Tenant assigned to call", call_sid=CallSid, tenant_code=conversation.call_data.tenant_code)
+
         response = VoiceResponse()
         # Set language hints to support both English and Spanish
         gather = Gather(
