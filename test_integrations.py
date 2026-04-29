@@ -731,6 +731,154 @@ async def test_crm_push_tenant_code_fallback():
     return ok
 
 
+async def test_tenant_determination_registry_multi():
+    """Unit test: get_tenant_for_call() returns first active tenant when registry has multiple tenants."""
+    print("\n" + "="*60)
+    print("Testing Tenant Determination - Registry with Multiple Tenants...")
+    print("="*60)
+
+    import backend.services.crm as crm_module
+    from backend.services.tenant_registry import TenantRegistryManager
+
+    fake_registry = TenantRegistryManager(
+        crm_url="https://crm.example.com",
+        master_api_key="master_key_test",
+    )
+    fake_registry._registry = {
+        "walmart": {"api_key": "vai_wmt", "signing_secret": "sec_wmt", "is_active": True},
+        "home_depot": {"api_key": "vai_hd", "signing_secret": "sec_hd", "is_active": True},
+    }
+
+    original_manager = crm_module.registry_manager
+    ok = True
+    try:
+        crm_module.registry_manager = fake_registry
+        from backend.services.tenant_determination import get_tenant_for_call
+        result = get_tenant_for_call()
+    finally:
+        crm_module.registry_manager = original_manager
+
+    if result == "walmart":
+        print(f"   ✓ get_tenant_for_call() returned first active tenant: '{result}'")
+    else:
+        print(f"   ✗ expected 'walmart', got '{result}'")
+        ok = False
+
+    if ok:
+        print("\n✅ SUCCESS: Tenant determination (multi-tenant registry) works correctly")
+    else:
+        print("\n❌ FAILED: Tenant determination (multi-tenant registry) has issues")
+    return ok
+
+
+async def test_tenant_determination_registry_single():
+    """Unit test: get_tenant_for_call() returns the only tenant when registry has one tenant."""
+    print("\n" + "="*60)
+    print("Testing Tenant Determination - Registry with Single Tenant...")
+    print("="*60)
+
+    import backend.services.crm as crm_module
+    from backend.services.tenant_registry import TenantRegistryManager
+
+    fake_registry = TenantRegistryManager(
+        crm_url="https://crm.example.com",
+        master_api_key="master_key_test",
+    )
+    fake_registry._registry = {
+        "celebrate_gannon": {"api_key": "vai_cg", "signing_secret": "sec_cg", "is_active": True},
+    }
+
+    original_manager = crm_module.registry_manager
+    ok = True
+    try:
+        crm_module.registry_manager = fake_registry
+        from backend.services.tenant_determination import get_tenant_for_call
+        result = get_tenant_for_call()
+    finally:
+        crm_module.registry_manager = original_manager
+
+    if result == "celebrate_gannon":
+        print(f"   ✓ get_tenant_for_call() returned the single registry tenant: '{result}'")
+    else:
+        print(f"   ✗ expected 'celebrate_gannon', got '{result}'")
+        ok = False
+
+    if ok:
+        print("\n✅ SUCCESS: Tenant determination (single-tenant registry) works correctly")
+    else:
+        print("\n❌ FAILED: Tenant determination (single-tenant registry) has issues")
+    return ok
+
+
+async def test_tenant_determination_no_registry():
+    """Unit test: get_tenant_for_call() falls back to CRM_TENANT_CODE when registry is None."""
+    print("\n" + "="*60)
+    print("Testing Tenant Determination - Registry Unavailable (fallback)...")
+    print("="*60)
+
+    import backend.services.crm as crm_module
+    from backend.config import CRM_TENANT_CODE
+
+    original_manager = crm_module.registry_manager
+    ok = True
+    try:
+        crm_module.registry_manager = None
+        from backend.services.tenant_determination import get_tenant_for_call
+        result = get_tenant_for_call()
+    finally:
+        crm_module.registry_manager = original_manager
+
+    if result == CRM_TENANT_CODE:
+        print(f"   ✓ get_tenant_for_call() fell back to CRM_TENANT_CODE: '{result}'")
+    else:
+        print(f"   ✗ expected CRM_TENANT_CODE '{CRM_TENANT_CODE}', got '{result}'")
+        ok = False
+
+    if ok:
+        print("\n✅ SUCCESS: Tenant determination (no registry fallback) works correctly")
+    else:
+        print("\n❌ FAILED: Tenant determination (no registry fallback) has issues")
+    return ok
+
+
+async def test_tenant_determination_empty_registry():
+    """Unit test: get_tenant_for_call() falls back to CRM_TENANT_CODE when registry is empty."""
+    print("\n" + "="*60)
+    print("Testing Tenant Determination - Empty Registry (fallback)...")
+    print("="*60)
+
+    import backend.services.crm as crm_module
+    from backend.services.tenant_registry import TenantRegistryManager
+    from backend.config import CRM_TENANT_CODE
+
+    fake_registry = TenantRegistryManager(
+        crm_url="https://crm.example.com",
+        master_api_key="master_key_test",
+    )
+    fake_registry._registry = {}  # Empty — no active tenants
+
+    original_manager = crm_module.registry_manager
+    ok = True
+    try:
+        crm_module.registry_manager = fake_registry
+        from backend.services.tenant_determination import get_tenant_for_call
+        result = get_tenant_for_call()
+    finally:
+        crm_module.registry_manager = original_manager
+
+    if result == CRM_TENANT_CODE:
+        print(f"   ✓ get_tenant_for_call() fell back to CRM_TENANT_CODE: '{result}'")
+    else:
+        print(f"   ✗ expected CRM_TENANT_CODE '{CRM_TENANT_CODE}', got '{result}'")
+        ok = False
+
+    if ok:
+        print("\n✅ SUCCESS: Tenant determination (empty registry fallback) works correctly")
+    else:
+        print("\n❌ FAILED: Tenant determination (empty registry fallback) has issues")
+    return ok
+
+
 async def main():
     """Run all integration tests"""
     print("\n" + "="*60)
@@ -761,6 +909,12 @@ async def main():
     crm_hmac_ok = await test_crm_push_with_hmac_auth()
     crm_fallback_ok = await test_crm_push_tenant_code_fallback()
 
+    # Tenant determination unit tests
+    td_multi_ok = await test_tenant_determination_registry_multi()
+    td_single_ok = await test_tenant_determination_registry_single()
+    td_no_registry_ok = await test_tenant_determination_no_registry()
+    td_empty_ok = await test_tenant_determination_empty_registry()
+
     # Summary
     print("\n" + "="*60)
     print("TEST SUMMARY")
@@ -777,13 +931,18 @@ async def main():
     print(f"Registry - Stale Cache:       {'✅ WORKING' if registry_stale_ok else '❌ FAILED'}")
     print(f"CRM Push - HMAC Auth:         {'✅ WORKING' if crm_hmac_ok else '❌ FAILED'}")
     print(f"CRM Push - Tenant Fallback:   {'✅ WORKING' if crm_fallback_ok else '❌ FAILED'}")
+    print(f"Tenant Det. - Multi-tenant:   {'✅ WORKING' if td_multi_ok else '❌ FAILED'}")
+    print(f"Tenant Det. - Single-tenant:  {'✅ WORKING' if td_single_ok else '❌ FAILED'}")
+    print(f"Tenant Det. - No Registry:    {'✅ WORKING' if td_no_registry_ok else '❌ FAILED'}")
+    print(f"Tenant Det. - Empty Registry: {'✅ WORKING' if td_empty_ok else '❌ FAILED'}")
     print("="*60 + "\n")
 
     all_ok = (
         calcom_ok and notion_ok and crm_backend_ok and
         crm_mock_booked_ok and crm_mock_escalated_ok and
         crm_mock_pending_ok and crm_mock_minimal_ok and escalation_ok and
-        registry_bootstrap_ok and registry_stale_ok and crm_hmac_ok and crm_fallback_ok
+        registry_bootstrap_ok and registry_stale_ok and crm_hmac_ok and crm_fallback_ok and
+        td_multi_ok and td_single_ok and td_no_registry_ok and td_empty_ok
     )
 
     if all_ok:
