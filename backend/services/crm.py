@@ -264,6 +264,7 @@ async def push_to_crm_backend(
             "summary": summary or "",
             "escalation_status": effective_escalation_status,
             "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "full_transcript": "[Call transcript not available for this endpoint]",
         }
 
         # Include extra context in optional notes field if accepted by backend

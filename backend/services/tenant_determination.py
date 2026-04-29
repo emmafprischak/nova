@@ -66,7 +66,11 @@ def get_tenant_for_call() -> str:
         all_tenants = registry.get_all_tenants()
         if all_tenants:
             if TENANT_SELECTION_STRATEGY == "first_available":
-                tenant_code = next(iter(all_tenants))
+                # Prioritize celebrate_gannon if available
+                if "celebrate_gannon" in all_tenants:
+                    tenant_code = "celebrate_gannon"
+                else:
+                    tenant_code = next(iter(all_tenants))
                 logger.info(
                     "Tenant determined from registry (strategy=%s): %s "
                     "— %d active tenant(s) available",

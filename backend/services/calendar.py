@@ -3,12 +3,12 @@ Calendar Service - Integrates with Cal.com
 """
 import httpx
 import sys
-import time
+# time module not needed
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config import CAL_API_KEY, CAL_EVENT_TYPE
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 from backend.services.logger import StructuredLogger
 
@@ -44,15 +44,20 @@ async def get_available_slots(days_ahead: int = 7, filter_business_hours: bool =
         end_date = start_date + timedelta(days=days_ahead)
 
         url = f"https://api.cal.com/v2/slots/available"
+        
+        headers = {
+            "Authorization": f"Bearer {CAL_API_KEY}",
+            "cal-api-version": "2024-08-13"
+        }
+        
         params = {
-            "apiKey": CAL_API_KEY,
             "eventTypeId": EVENT_TYPE_ID,
             "startTime": start_date.isoformat(),
             "endTime": end_date.isoformat(),
         }
 
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=params)
+            response = await client.get(url, params=params, headers=headers)
             response.raise_for_status()
             data = response.json()
 
@@ -230,20 +235,26 @@ async def find_booking_by_phone(phone: str) -> dict:
         dict with success: bool, bookings: list of booking dicts
     """
     try:
-        url = f"https://api.cal.com/v1/bookings"
+        url = f"https://api.cal.com/v2/bookings"
         
-        # Get bookings - v1 API doesn't require cal-api-version header
+        headers = {
+            "Authorization": f"Bearer {CAL_API_KEY}",
+            "cal-api-version": "2024-08-13"
+        }
+        
         params = {
-            "apiKey": CAL_API_KEY,
-            "status": "upcoming"  # Only upcoming bookings
+            "status": "upcoming"
         }
         
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, params=params)
+            response = await client.get(url, params=params, headers=headers)
             response.raise_for_status()
             result = response.json()
             
-            bookings = result.get("bookings", [])
+            # V2 API returns data in a different structure
+            bookings = result.get("data", [])
+            if isinstance(bookings, dict):
+                bookings = bookings.get("bookings", [])
             
             # Filter by phone number in metadata
             matching_bookings = []
