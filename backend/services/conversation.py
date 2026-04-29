@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import OPENAI_API_KEY, NOVA_SYSTEM_PROMPT_EN, NOVA_SYSTEM_PROMPT_ES, NOVA_CANCELLATION_PROMPT_EN, NOVA_CANCELLATION_PROMPT_ES
 from models import ConversationState, Message
 import json
+import re
 
 # FR-08: Discovery questions integration
 from services.discovery import (
@@ -200,8 +201,10 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
         messages.append({"role": msg.role, "content": msg.content})
     
     # Only add extraction instructions when NOT in discovery mode
-    # JSON extraction is always enabled - we just parse it silently
-    if True:  # Always add extraction
+    # During discovery, we do not need JSON extraction as we use dedicated discovery parsing
+    in_discovery = hasattr(conversation, "stage") and conversation.stage == "discovery" and not conversation.discovery_complete
+    
+    if not in_discovery:  # Skip JSON extraction during discovery
         # Add extraction instructions - make it clearer this is AFTER the spoken response
         messages.append({
             "role": "system", 
