@@ -758,6 +758,8 @@ async def test_tenant_determination_registry_multi():
     finally:
         crm_module.registry_manager = original_manager
 
+    # Python 3.7+ guarantees dict insertion order; "first_available" strategy
+    # should return the first key inserted into the registry.
     if result == "walmart":
         print(f"   ✓ get_tenant_for_call() returned first active tenant: '{result}'")
     else:
