@@ -79,7 +79,7 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
             except Exception as e:
                 logger.error("Error generating summary", error=str(e))
 
-            if conversation.call_data.status in ["new", "needs_human"]:
+            if conversation.call_data.status == "new":
                 conversation.call_data.status = "no_booking"
                 try:
                     await create_lead(conversation.call_data, CallSid)
@@ -595,7 +595,7 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
             except Exception as e:
                 logger.error("Error generating summary", error=str(e))
 
-            if conversation.call_data.status in ["new", "needs_human"]:
+            if conversation.call_data.status == "new":
                 conversation.call_data.status = "no_booking"
                 try:
                     await create_lead(conversation.call_data, CallSid)
