@@ -10,6 +10,7 @@ from config import OPENAI_API_KEY, NOVA_SYSTEM_PROMPT_EN, NOVA_SYSTEM_PROMPT_ES,
 from models import ConversationState, Message
 import json
 import re
+import logging
 
 # FR-08: Discovery questions integration
 from services.discovery import (
@@ -37,6 +38,7 @@ from services.escalation import (
 
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
+logger = logging.getLogger(__name__)
 
 # Store active conversations
 active_conversations = {}
@@ -80,6 +82,24 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
         conversation.language = detected_language
     
     # Check for escalation
+    # Detect and update tenant code from user speech
+    from services.discovery import resolve_tenant_code
+    detected_tenant = resolve_tenant_code(user_message)
+    if detected_tenant:
+        conversation.call_data.tenant_code = detected_tenant
+        logger.info(
+            "Tenant code updated from user speech",
+            call_sid=call_sid,
+            tenant_code=detected_tenant
+        )
+        
+        # After tenant is detected, ask for their name if we don't have it yet
+        if not conversation.call_data.name:
+            if conversation.language == 'es':
+                name_request = "¡Perfecto! ¿Y cómo te llamas?"
+            else:
+                name_request = "Perfect! And what's your name?"
+            return name_request, {}
     failed_attempts = getattr(conversation, 'failed_extraction_count', 0)
     
     should_escalate, reason = should_escalate_to_human(
@@ -131,11 +151,22 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
             conversation.name_confirmed = True
             conversation.awaiting_name_confirmation = False
             
-            # NEW: After name is confirmed, move to discovery stage
-            if not conversation.discovery_complete:
-                conversation.stage = 'discovery'
+            # After name confirmed, ask for phone number if we don't have it
+            if not conversation.call_data.phone:
+                if conversation.language == 'es':
+                    phone_question = f"Perfecto, {conversation.call_data.name}. ¿Y cuál es tu número de teléfono?"
+                else:
+                    phone_question = f"Perfect, {conversation.call_data.name}. And what's your phone number?"
+                
+                return phone_question, {}
             
-            # Continue normal conversation - let AI respond naturally
+            # If we have phone, ask what we can help with
+            if conversation.language == 'es':
+                help_question = f"Perfecto, {conversation.call_data.name}. ¿En qué puedo ayudarte hoy? ¿Tienes alguna pregunta o solo quieres reservar una cita con el equipo para comenzar?"
+            else:
+                help_question = f"Perfect, {conversation.call_data.name}. What can I help you with today? Do you have any questions or just want to book an appointment with the team to get started?"
+            
+            return help_question, {}
     
     # FR-13: Handle letter-by-letter spelling
     if hasattr(conversation, 'awaiting_spelling_correction') and conversation.awaiting_spelling_correction:
@@ -151,17 +182,22 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
             conversation.name_confirmed = True
             conversation.awaiting_spelling_correction = False
             
-            # NEW: After name is confirmed via manual spelling, move to discovery
-            if not conversation.discovery_complete:
-                conversation.stage = 'discovery'
+            # After name confirmed via spelling, ask for phone if we don't have it
+            if not conversation.call_data.phone:
+                if conversation.language == 'es':
+                    phone_question = f"Perfecto, {conversation.call_data.name}. ¿Y cuál es tu número de teléfono?"
+                else:
+                    phone_question = f"Perfect, {conversation.call_data.name}. And what's your phone number?"
+                
+                return phone_question, {"name": conversation.call_data.name}
             
-            # Confirm we got it
+            # If we have phone, ask what we can help with
             if conversation.language == 'es':
-                confirmation = f"Perfecto, {conversation.call_data.name}. Gracias."
+                help_question = f"Perfecto, {conversation.call_data.name}. ¿En qué puedo ayudarte hoy? ¿Tienes alguna pregunta o solo quieres reservar una cita con el equipo para comenzar?"
             else:
-                confirmation = f"Got it, {conversation.call_data.name}. Thank you."
+                help_question = f"Perfect, {conversation.call_data.name}. What can I help you with today? Do you have any questions or just want to book an appointment with the team to get started?"
             
-            return confirmation, {"name": conversation.call_data.name}
+            return help_question, {"name": conversation.call_data.name}
     
     # FR-08.5: Check for cancellation request
     if is_cancellation_request(user_message) and not conversation.is_cancelling:
@@ -169,11 +205,46 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
         conversation.stage = 'cancellation'
         logger.info("Cancellation detected", call_sid=call_sid)
     
+    # FR-14: Check for appointment/booking intent to start discovery
+    booking_keywords = [
+        "appointment", "schedule", "book", "booking", "consultation",
+        "meet", "meeting", "call back", "talk to someone", "reserve",
+        "set up", "sign up", "get started", "yes"
+    ]
+    
+    # If we have the name and tenant but discovery not complete, check for booking intent
+    if (conversation.call_data.name and 
+        conversation.call_data.tenant_code and
+        not conversation.discovery_complete and 
+        conversation.stage != 'discovery' and
+        conversation.stage != 'cancellation'):
+        
+        logger.info(
+            "Checking booking intent",
+            call_sid=call_sid,
+            has_name=bool(conversation.call_data.name),
+            has_tenant=bool(conversation.call_data.tenant_code),
+            user_message=user_message
+        )
+        
+        if any(keyword in user_message.lower() for keyword in booking_keywords):
+            # User wants to book - start discovery
+            conversation.stage = 'discovery'
+            logger.info("Booking intent detected - starting discovery", call_sid=call_sid)
+            # Don't return - let AI ask first question using DISCOVERY_SYSTEM_PROMPT
+    
     # FR-08: Extract discovery answers from user input
-    # Extract on every message
+    if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
         conversation.call_data.discovery_answers = extract_discovery_answers(
             user_message,
             conversation.call_data.discovery_answers
+        )
+        
+        logger.info(
+            "Discovery answers extracted",
+            call_sid=call_sid,
+            answers=conversation.call_data.discovery_answers,
+            sufficient=has_sufficient_discovery_data(conversation.call_data.discovery_answers)
         )
         
         # Check if we have enough discovery data to move forward
@@ -181,6 +252,14 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
             conversation.discovery_complete = True
             # Transition back to normal conversation flow for booking
             conversation.stage = 'booking'
+            
+            # Return immediately with ready_to_book=True to trigger slot fetching
+            if conversation.language == 'es':
+                transition_msg = "¡Perfecto! Déjame ver qué horarios tengo disponibles."
+            else:
+                transition_msg = "Perfect! Let me see what times I have available."
+            
+            return transition_msg, {"ready_to_book": True}
 
     # Select the appropriate system prompt
     # Priority: cancellation > discovery > normal

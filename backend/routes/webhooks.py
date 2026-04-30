@@ -170,8 +170,8 @@ async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
     try:
         # Determine tenant for this call from the registry (falls back to CRM_TENANT_CODE)
         conversation = get_conversation(CallSid)
-        conversation.call_data.tenant_code = get_tenant_for_call()
-        logger.info("Tenant assigned to call", call_sid=CallSid, tenant_code=conversation.call_data.tenant_code)
+        #         conversation.call_data.tenant_code = get_tenant_for_call()
+        logger.info("Tenant would be assigned to call", call_sid=CallSid, tenant_code=conversation.call_data.tenant_code)
 
         response = VoiceResponse()
         # Set language hints to support both English and Spanish

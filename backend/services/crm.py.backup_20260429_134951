@@ -56,10 +56,6 @@ def _build_voice_agent_headers(tenant_code: str, body_bytes: bytes) -> dict:
             "celebrate_gannon": {
                 "api_key": "vai_DaLfrOsAeRU2LCPAxUIhzcC0FqkQ_FyP",
                 "signing_secret": "meXMVcjn-UkJEjkcRQ3UgSHBpBTfHeBs5QYFApg_peUoEmGXTPwlw6tkKanA6ydx"
-            },
-            "walmart": {
-                "api_key": "vai_jqnw5iAi4UnHxDV7n3J4TSEhlWLBRwzS",
-                "signing_secret": "1FNrr-XbmCgctiYygnMlBWQLp3fXzKLTokA7t3ZPk5MK5_wzIOvwbeDizb9CHhdS"
             }
         }
         if tenant_code in FALLBACK_CREDENTIALS:
@@ -268,7 +264,6 @@ async def push_to_crm_backend(
             "summary": summary or "",
             "escalation_status": effective_escalation_status,
             "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "full_transcript": "[Call transcript not available for this endpoint]",
         }
 
         # Include extra context in optional notes field if accepted by backend
@@ -357,31 +352,8 @@ async def push_call_log_to_backend(
         }
 
         # Add optional fields that match backend schema
-        # Build enhanced summary with discovery answers
-        enhanced_summary = summary or ""
-        
-        if discovery_answers and isinstance(discovery_answers, dict):
-            discovery_notes = []
-            
-            # Extract all discovery fields
-            if discovery_answers.get("company"):
-                discovery_notes.append(f"Company: {discovery_answers.get('company')}")
-            if discovery_answers.get("timeline"):
-                discovery_notes.append(f"Timeline: {discovery_answers.get('timeline')}")
-            if discovery_answers.get("budget"):
-                discovery_notes.append(f"Budget: {discovery_answers.get('budget')}")
-            if discovery_answers.get("decision_maker"):
-                discovery_notes.append(f"Decision Maker: {discovery_answers.get('decision_maker')}")
-            if discovery_answers.get("team_size"):
-                discovery_notes.append(f"Team Size: {discovery_answers.get('team_size')}")
-            
-            # Append discovery info to summary
-            if discovery_notes:
-                discovery_section = " | Discovery: " + ", ".join(discovery_notes)
-                enhanced_summary = (enhanced_summary + discovery_section)[:500]
-        
-        if enhanced_summary:
-            payload["summary"] = enhanced_summary[:500]  # Limit length
+        if summary:
+            payload["summary"] = summary[:500]  # Limit length
 
         if call_data.name:
             payload["caller_name"] = call_data.name

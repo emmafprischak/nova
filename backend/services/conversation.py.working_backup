@@ -170,7 +170,7 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
         logger.info("Cancellation detected", call_sid=call_sid)
     
     # FR-08: Extract discovery answers from user input
-    # Extract on every message
+    if hasattr(conversation, 'stage') and conversation.stage == 'discovery':
         conversation.call_data.discovery_answers = extract_discovery_answers(
             user_message,
             conversation.call_data.discovery_answers
