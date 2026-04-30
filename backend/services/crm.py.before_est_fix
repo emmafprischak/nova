@@ -14,7 +14,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import NOTION_TOKEN, NOTION_DATABASE_ID, NOTION_API_URL, CRM_BACKEND_URL, CRM_TENANT_CODE
 from models import CallData
 from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -268,7 +267,7 @@ async def push_to_crm_backend(
             "tenant_code": call_data.tenant_code or CRM_TENANT_CODE or tenant_code,
             "summary": summary or "",
             "escalation_status": effective_escalation_status,
-            "timestamp": timestamp or datetime.now(ZoneInfo("America/New_York")).isoformat(),
+            "timestamp": timestamp or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "full_transcript": "[Call transcript not available for this endpoint]",
         }
 
