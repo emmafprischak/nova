@@ -208,35 +208,13 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
         # Check if we have enough discovery data to move forward
         if has_sufficient_discovery_data(conversation.call_data.discovery_answers):
             conversation.discovery_complete = True
-            
-            # DEBUG: Log discovery_answers before copying
-            logger.info(
-                "DEBUG: Discovery complete - checking discovery_answers",
-                call_sid=call_sid,
-                discovery_answers=str(conversation.call_data.discovery_answers)
-            )
 
             # Copy name and phone from discovery_answers to call_data for Cal.com booking
             from services.discovery import DiscoveryQuestion
             if conversation.call_data.discovery_answers.get(DiscoveryQuestion.NAME):
                 conversation.call_data.name = conversation.call_data.discovery_answers[DiscoveryQuestion.NAME]
-                logger.info("DEBUG: Copied NAME", call_sid=call_sid, name=conversation.call_data.name)
-            else:
-                logger.info("DEBUG: NAME not in discovery_answers", call_sid=call_sid)
-                
             if conversation.call_data.discovery_answers.get(DiscoveryQuestion.PHONE):
                 conversation.call_data.phone = conversation.call_data.discovery_answers[DiscoveryQuestion.PHONE]
-                logger.info("DEBUG: Copied PHONE", call_sid=call_sid, phone=conversation.call_data.phone)
-            else:
-                logger.info("DEBUG: PHONE not in discovery_answers", call_sid=call_sid)
-            
-            # DEBUG: Log call_data after copying
-            logger.info(
-                "DEBUG: call_data after copying",
-                call_sid=call_sid,
-                name=conversation.call_data.name,
-                phone=conversation.call_data.phone
-            )
 
             # Return immediately with ready_to_book=True to trigger slot fetching
             if conversation.language == 'es':

@@ -178,7 +178,7 @@ async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
         gather = Gather(
             input='speech',
             action='/webhooks/voice/process',
-            speechTimeout=5,
+            speechTimeout=2,
             language='en-US',
             hints='hola, hello, buenos días, ayuda, help, español, spanish',
             speech_model='experimental_conversations'
@@ -274,7 +274,7 @@ async def process_speech(
             gather = Gather(
                 input='speech',
                 action='/webhooks/voice/process',
-                speechTimeout=5,
+                speechTimeout=2,
                 language=lang_code,
                 speech_model='experimental_conversations'
             )
@@ -396,7 +396,7 @@ async def process_speech(
             gather = Gather(
                 input='speech',
                 action='/webhooks/voice/book',
-                speechTimeout=5,
+                speechTimeout=2,
                 language=lang_code,
                 speech_model='experimental_conversations'
             )
@@ -410,7 +410,7 @@ async def process_speech(
         gather = Gather(
             input='speech',
             action='/webhooks/voice/process',
-            speechTimeout=5,
+            speechTimeout=2,
             language=lang_code,
             speech_model='experimental_conversations'
         )

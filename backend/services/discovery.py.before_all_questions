@@ -9,8 +9,6 @@ from enum import Enum
 
 class DiscoveryQuestion(str, Enum):
     """Questions we ask to qualify leads."""
-    NAME = "name"
-    PHONE = "phone"
     COMPANY = "company"
     TIMELINE = "timeline"
     BUDGET = "budget"
@@ -129,20 +127,18 @@ def resolve_tenant_code(user_input: str) -> Optional[str]:
 
 def has_sufficient_discovery_data(answers: dict) -> bool:
     """
-    Returns True if we have ALL 7 discovery questions answered.
+    Returns True if we have the company AND at least 2 of the 3 other key questions answered.
     """
-    required_questions = [
-        DiscoveryQuestion.NAME,
-        DiscoveryQuestion.PHONE,
-        DiscoveryQuestion.COMPANY,
-        DiscoveryQuestion.TIMELINE,
-        DiscoveryQuestion.BUDGET,
-        DiscoveryQuestion.DECISION_MAKER,
-        DiscoveryQuestion.TEAM_SIZE
-    ]
+    # Company is REQUIRED
+    if not answers.get(DiscoveryQuestion.COMPANY):
+        return False
 
-    # All 7 questions must be answered
-    return all(answers.get(q) for q in required_questions)
+    # Need at least 2 of the other 3 questions
+    answered = sum(
+        1 for q in [DiscoveryQuestion.TIMELINE, DiscoveryQuestion.BUDGET, DiscoveryQuestion.DECISION_MAKER]
+        if answers.get(q)
+    )
+    return answered >= 2
 
 
 def extract_discovery_answers(user_input: str, current_answers: dict) -> dict:
@@ -192,39 +188,5 @@ def extract_discovery_answers(user_input: str, current_answers: dict) -> dict:
             answers[DiscoveryQuestion.DECISION_MAKER] = "joint decision"
         elif "someone else" in lower:
             answers[DiscoveryQuestion.DECISION_MAKER] = "not decision-maker"
-
-    # Team size detection
-    if not answers.get(DiscoveryQuestion.TEAM_SIZE):
-        import re
-        # Look for numbers in the response
-        numbers = re.findall(r'\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b', lower)
-        word_to_num = {"one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
-                       "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10"}
-        if numbers:
-            num_str = word_to_num.get(numbers[0], numbers[0])
-            answers[DiscoveryQuestion.TEAM_SIZE] = num_str
-        elif "just me" in lower or "only me" in lower:
-            answers[DiscoveryQuestion.TEAM_SIZE] = "1"
-
-    # Name detection - simple pattern matching for names
-    if not answers.get(DiscoveryQuestion.NAME):
-        import re
-        # Look for capitalized words that might be names (2-30 chars, letters only)
-        # Pattern: capitalized word, optionally followed by another capitalized word
-        name_match = re.search(r'\b([A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\b', user_input)
-        if name_match:
-            answers[DiscoveryQuestion.NAME] = name_match.group(1)
-        # Also check for single word responses that might be first names
-        elif len(user_input.split()) <= 2 and len(user_input) > 0 and user_input[0].isupper():
-            answers[DiscoveryQuestion.NAME] = user_input.strip()
-
-    # Phone number detection
-    if not answers.get(DiscoveryQuestion.PHONE):
-        import re
-        # Remove all non-digit characters and see if we have 10+ digits
-        digits_only = re.sub(r'\D', '', user_input)
-        if len(digits_only) >= 10:
-            # Format as phone number
-            answers[DiscoveryQuestion.PHONE] = digits_only[:10]
 
     return answers
