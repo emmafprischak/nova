@@ -191,16 +191,6 @@ def generate_response(call_sid: str, user_message: str, detected_language: str =
             conversation.call_data.discovery_answers
         )
         
-        
-        # Update tenant_code if discovered
-        if "_tenant_code" in conversation.call_data.discovery_answers:
-            discovered_tenant = conversation.call_data.discovery_answers["_tenant_code"]
-            conversation.call_data.tenant_code = discovered_tenant
-            logger.info(
-                "Tenant updated from discovery",
-                call_sid=call_sid,
-                tenant_code=discovered_tenant
-            )
         # Check if we have enough discovery data to move forward
         if has_sufficient_discovery_data(conversation.call_data.discovery_answers):
             conversation.discovery_complete = True
