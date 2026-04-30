@@ -186,7 +186,7 @@ async def handle_incoming_call(request: Request, CallSid: str = Form(...)):
 
         # Use Google's more natural neural voice
         gather.say(
-            "Hey there! This is Nova from Orbyn AI. Which company are you calling for?",
+            "Hey there! This is Nova from Orbyn AI. How can I help you today?",
             voice='Google.en-US-Neural2-F'
         )
 
