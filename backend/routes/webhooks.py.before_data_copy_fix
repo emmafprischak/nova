@@ -91,27 +91,6 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                 if not conversation.call_data.phone and conversation.call_data.discovery_answers.get(DiscoveryQuestion.PHONE):
                     conversation.call_data.phone = conversation.call_data.discovery_answers[DiscoveryQuestion.PHONE]
                     print(f"DEBUG: Copied phone from discovery_answers: {conversation.call_data.phone}")
-            # Push comprehensive call log to /public/call-logs/ for all completed calls
-            try:
-                summary_text = summary.get("summary", "") if isinstance(summary, dict) else ""
-                transcript_text = summary.get("transcript", "") if isinstance(summary, dict) else ""
-                call_log_escalation = determine_escalation_status(conversation.call_data, summary_text)
-                await push_call_log_to_backend(
-                    call_sid=CallSid,
-                    call_data=conversation.call_data,
-                    summary=summary_text,
-                    transcript=transcript_text,
-                    escalation_status=call_log_escalation,
-                    language=conversation.language,
-                    discovery_answers=conversation.call_data.discovery_answers,
-                )
-                print("✅ Call log pushed to /public/call-logs/")
-                logger.info("Call log pushed successfully")
-            except Exception as e:
-                print(f"Failed to push call log: {e}")
-                logger.error("Failed to push call log", error=str(e))
-
-            
                 
                 conversation.call_data.status = "no_booking"
                 try:
@@ -609,19 +588,6 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
             except Exception as e:
                 print(f"❌ Error generating summary: {e}")
 
-
-            # For escalations during discovery, copy name/phone from discovery_answers BEFORE CRM posting
-            if conversation.call_data.status in ["new", "needs_human", "needs_callback"]:
-                from services.discovery import DiscoveryQuestion
-                print(f"DEBUG escalation: discovery_answers = {conversation.call_data.discovery_answers}")
-                print(f"DEBUG escalation: NAME in answers = {conversation.call_data.discovery_answers.get(DiscoveryQuestion.NAME)}")
-                print(f"DEBUG escalation: PHONE in answers = {conversation.call_data.discovery_answers.get(DiscoveryQuestion.PHONE)}")
-                if not conversation.call_data.name and conversation.call_data.discovery_answers.get(DiscoveryQuestion.NAME):
-                    conversation.call_data.name = conversation.call_data.discovery_answers[DiscoveryQuestion.NAME]
-                    print(f"DEBUG: Copied name from discovery_answers: {conversation.call_data.name}")
-                if not conversation.call_data.phone and conversation.call_data.discovery_answers.get(DiscoveryQuestion.PHONE):
-                    conversation.call_data.phone = conversation.call_data.discovery_answers[DiscoveryQuestion.PHONE]
-                    print(f"DEBUG: Copied phone from discovery_answers: {conversation.call_data.phone}")
             # Push comprehensive call log to /public/call-logs/ for all completed calls
             try:
                 summary_text = summary.get("summary", "") if isinstance(summary, dict) else ""
@@ -637,17 +603,46 @@ async def call_status(CallSid: str = Form(...), CallStatus: str = Form(...)):
                     discovery_answers=conversation.call_data.discovery_answers,
                 )
                 print("✅ Call log pushed to /public/call-logs/")
-                logger.info("Call log pushed successfully")
+                logger.info("Saved call summary", filepath=filepath)
             except Exception as e:
-                print(f"Failed to push call log: {e}")
-                logger.error("Failed to push call log", error=str(e))
+                logger.error("Error generating summary", error=str(e))
 
-            
+            if conversation.call_data.status in ["new", "needs_human", "needs_callback"]:
+                # For escalations during discovery, copy name/phone from discovery_answers
+                from services.discovery import DiscoveryQuestion
+                print(f"DEBUG escalation: discovery_answers = {conversation.call_data.discovery_answers}")
+                print(f"DEBUG escalation: NAME in answers = {conversation.call_data.discovery_answers.get(DiscoveryQuestion.NAME)}")
+                print(f"DEBUG escalation: PHONE in answers = {conversation.call_data.discovery_answers.get(DiscoveryQuestion.PHONE)}")
+                if not conversation.call_data.name and conversation.call_data.discovery_answers.get(DiscoveryQuestion.NAME):
+                    conversation.call_data.name = conversation.call_data.discovery_answers[DiscoveryQuestion.NAME]
+                    print(f"DEBUG: Copied name from discovery_answers: {conversation.call_data.name}")
+                if not conversation.call_data.phone and conversation.call_data.discovery_answers.get(DiscoveryQuestion.PHONE):
+                    conversation.call_data.phone = conversation.call_data.discovery_answers[DiscoveryQuestion.PHONE]
+                    print(f"DEBUG: Copied phone from discovery_answers: {conversation.call_data.phone}")
+                
+                conversation.call_data.status = "no_booking"
+                try:
+                    await create_lead(conversation.call_data, CallSid)
+                except Exception as e:
+                    print(f"Failed to save lead on completion: {e}")
 
-
-
-
-
+                # Push to CRM backend with summary text (extracted from summary dict)
+                    logger.error("Failed to save lead on completion", error=str(e))
+                
+                # Push to CRM backend with summary (will be None if generation failed)
+                try:
+                    summary_text = summary.get("summary", "") if isinstance(summary, dict) else ""
+                    crm_escalation = determine_escalation_status(conversation.call_data, summary_text)
+                    await push_to_crm_backend(
+                        call_data=conversation.call_data,
+                        call_sid=CallSid,
+                        summary=summary_text,
+                        escalation_status=crm_escalation,
+                    )
+                except Exception as e:
+                    print(f"Failed to push to CRM backend on completion: {e}")
+                    logger.error("Failed to push to CRM backend", error=str(e))
+                    
 
             end_conversation(CallSid)
 
